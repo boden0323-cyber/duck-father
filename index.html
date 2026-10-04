@@ -42,15 +42,46 @@
         ];
 
         function App() {
-            const [money, setMoney] = useState(150);
-            const [totalRevenue, setTotalRevenue] = useState(150);
-            const [rep, setRep] = useState(10);
-            const [shopLevel, setShopLevel] = useState(1);
+            // 從 localStorage 讀取紀錄（若無則使用預設值）
+            const [money, setMoney] = useState(() => {
+                const saved = localStorage.getItem('duck_money');
+                return saved !== null ? Number(saved) : 150;
+            });
+            const [totalRevenue, setTotalRevenue] = useState(() => {
+                const saved = localStorage.getItem('duck_revenue');
+                return saved !== null ? Number(saved) : 150;
+            });
+            const [rep, setRep] = useState(() => {
+                const saved = localStorage.getItem('duck_rep');
+                return saved !== null ? Number(saved) : 10;
+            });
+            const [shopLevel, setShopLevel] = useState(() => {
+                const saved = localStorage.getItem('duck_level');
+                return saved !== null ? Number(saved) : 1;
+            });
+
+            // 存檔至 localStorage
+            useEffect(() => {
+                localStorage.setItem('duck_money', money);
+            }, [money]);
+
+            useEffect(() => {
+                localStorage.setItem('duck_revenue', totalRevenue);
+            }, [totalRevenue]);
+
+            useEffect(() => {
+                localStorage.setItem('duck_rep', rep);
+            }, [rep]);
+
+            useEffect(() => {
+                localStorage.setItem('duck_level', shopLevel);
+            }, [shopLevel]);
+
             const [currentTab, setCurrentTab] = useState('shop');
             const [showShareModal, setShowShareModal] = useState(false);
             const [activeCoupon, setActiveCoupon] = useState(null);
 
-            // 購物車系統 state
+            // 購物車系統
             const [cart, setCart] = useState({});
             const [showCartModal, setShowCartModal] = useState(false);
 
@@ -134,7 +165,6 @@
                 alert(`🎊 門市順利升級至 LV.${shopLevel + 1}！解鎖門市專屬折價券獎勵！`);
             };
 
-            // 修正版購物車邏輯
             const addToCart = (item) => {
                 setCart(prev => {
                     const currentQty = prev[item.id] ? prev[item.id].qty : 0;
@@ -164,6 +194,18 @@
                         [id]: { ...existing, qty: newQty }
                     };
                 });
+            };
+
+            const resetGameData = () => {
+                if (confirm('確定要清除存檔重頭開始經營嗎？')) {
+                    localStorage.clear();
+                    setMoney(150);
+                    setTotalRevenue(150);
+                    setRep(10);
+                    setShopLevel(1);
+                    setCart({});
+                    alert('已重置遊戲進度！');
+                }
             };
 
             const cartList = Object.values(cart);
@@ -283,13 +325,19 @@
                                 </div>
                             </div>
 
-                            {/* 升級門市按鈕 */}
-                            <button
-                                onClick={upgradeShop}
-                                className="w-full bg-gradient-to-r from-amber-500 to-yellow-600 text-stone-950 font-black py-3.5 rounded-xl text-sm shadow-lg active:scale-95"
-                            >
-                                🚀 擴大門市等級 (需 ${shopLevel * 350} 營業金)
-                            </button>
+                            {/* 升級門市與存檔管理按鈕 */}
+                            <div className="space-y-2">
+                                <button
+                                    onClick={upgradeShop}
+                                    className="w-full bg-gradient-to-r from-amber-500 to-yellow-600 text-stone-950 font-black py-3.5 rounded-xl text-sm shadow-lg active:scale-95"
+                                >
+                                    🚀 擴大門市等級 (需 ${shopLevel * 350} 營業金)
+                                </button>
+                                <div className="flex justify-between items-center text-[10px] text-stone-500 px-1">
+                                    <span>💾 進度會自動儲存於此裝置</span>
+                                    <button onClick={resetGameData} className="underline text-stone-600 hover:text-stone-400">重置遊戲存檔</button>
+                                </div>
+                            </div>
                         </div>
                     )}
 
