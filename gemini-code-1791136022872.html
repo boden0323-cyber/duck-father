@@ -1,0 +1,319 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>鴨爸爸滷味大亨：模擬經營</title>
+    <script src="https://unpkg.com/react@18/umd/react.development.js"></script>
+    <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        body { font-family: 'PingFang TC', 'Microsoft JhengHei', sans-serif; background-color: #120e0b; color: #eee; select: none; overflow: hidden; -webkit-tap-highlight-color: transparent; }
+        .order-pop { animation: pop 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275); }
+        @keyframes pop { from { transform: scale(0.5); opacity: 0; } to { transform: scale(1); opacity: 1; } }
+        .tab-active { border-bottom: 3px solid #f59e0b; color: #fbbf24; font-weight: bold; }
+    </style>
+</head>
+<body>
+    <div id="root"></div>
+
+    <script type="text/babel">
+        const { useState, useEffect } = React;
+
+        const MENU_ITEMS = [
+            { id: 'tofu', name: '招牌豆干', icon: '🧈', price: 30 },
+            { id: 'noodle', name: '古早味乾麵', icon: '🍜', price: 50 },
+            { id: 'ear', name: '秘製豬耳朵', icon: '🐷', price: 60 },
+            { id: 'beef', name: '香滷牛腱', icon: '🥩', price: 120 },
+        ];
+
+        const CUSTOMER_TYPES = [
+            { name: '西子灣學生', avatar: '🎓', patience: 12 },
+            { name: '哈瑪星美食客', avatar: '🛵', patience: 10 },
+            { name: '濱海一路老街坊', avatar: '👵', patience: 15 },
+            { name: '集町預購團友', avatar: '📦', patience: 18 },
+        ];
+
+        function App() {
+            const [money, setMoney] = useState(150);
+            const [totalRevenue, setTotalRevenue] = useState(150); // 總營業額累積
+            const [rep, setRep] = useState(10);
+            const [shopLevel, setShopLevel] = useState(1);
+            const [currentTab, setCurrentTab] = useState('shop');
+            const [showShareModal, setShowShareModal] = useState(false);
+
+            const [customer, setCustomer] = useState(null);
+            const [orderProgress, setOrderProgress] = useState([]);
+            const [kitchenStatus, setKitchenStatus] = useState('IDLE');
+
+            const spawnCustomer = () => {
+                if (customer) return;
+                const type = CUSTOMER_TYPES[Math.floor(Math.random() * CUSTOMER_TYPES.length)];
+                const requestedCount = Math.min(MENU_ITEMS.length, Math.floor(Math.random() * 2) + 1);
+                const items = [];
+                for(let i=0; i<requestedCount; i++) {
+                    items.push(MENU_ITEMS[Math.floor(Math.random() * MENU_ITEMS.length)]);
+                }
+
+                setCustomer({
+                    ...type,
+                    id: Date.now(),
+                    items,
+                    timeLeft: type.patience,
+                });
+                setOrderProgress([]);
+            };
+
+            useEffect(() => {
+                let timer = null;
+                if (customer) {
+                    timer = setInterval(() => {
+                        setCustomer(prev => {
+                            if (!prev) return null;
+                            if (prev.timeLeft <= 1) {
+                                alert(`😡 ${prev.name} 等太久離開了！好評度 -1`);
+                                setRep(r => Math.max(0, r - 1));
+                                return null;
+                            }
+                            return { ...prev, timeLeft: prev.timeLeft - 1 };
+                        });
+                    }, 1000);
+                } else {
+                    timer = setTimeout(spawnCustomer, 2000);
+                }
+                return () => {
+                    clearInterval(timer);
+                    clearTimeout(timer);
+                };
+            }, [customer]);
+
+            const prepareItem = (item) => {
+                if (!customer || kitchenStatus === 'COOKING') return;
+
+                setKitchenStatus('COOKING');
+                setTimeout(() => {
+                    setOrderProgress(prev => [...prev, item.id]);
+                    setKitchenStatus('IDLE');
+
+                    const updatedProgress = [...orderProgress, item.id];
+                    const requiredIds = customer.items.map(i => i.id).sort();
+                    const currentIds = [...updatedProgress].sort();
+
+                    if (JSON.stringify(requiredIds) === JSON.stringify(currentIds)) {
+                        const totalEarn = customer.items.reduce((sum, i) => sum + i.price, 0);
+                        setMoney(m => m + totalEarn);
+                        setTotalRevenue(r => r + totalEarn); // 累積總營業額
+                        setRep(r => r + 1);
+                        alert(`🎉 出餐成功！賺取 $${totalEarn} 營業金！`);
+                        setCustomer(null);
+                        setOrderProgress([]);
+                    }
+                }, 600);
+            };
+
+            const upgradeShop = () => {
+                const cost = shopLevel * 350;
+                if (money < cost) {
+                    alert(`資金不足！擴大門市需要 $${cost}`);
+                    return;
+                }
+                setMoney(m => m - cost);
+                setShopLevel(l => l + 1);
+                alert(`🎊 門市順利升級至 LV.${shopLevel + 1}！知名度大增！`);
+            };
+
+            const gameUrl = window.location.href.includes('file:') 
+                ? 'https://boden0323-cyber.github.io/duck-father/' 
+                : window.location.href;
+
+            const shareText = `鴨爸爸濱海一路門市《滷味大亨》試營運中！快來一起賣乾麵、切滷味領專屬折價券！ ${gameUrl}`;
+
+            const handleLineShare = () => {
+                window.open(`https://line.me/R/msg/text/?${encodeURIComponent(shareText)}`, '_blank');
+            };
+
+            const handleCopyLink = () => {
+                navigator.clipboard.writeText(gameUrl);
+                alert('📋 遊戲網址已複製！快發給 LINE 好友或社群群組！');
+            };
+
+            return (
+                <div className="max-w-md mx-auto h-screen flex flex-col bg-stone-950 text-stone-100 select-none relative">
+                    
+                    {/* 頂部營運儀表板 */}
+                    <div className="bg-gradient-to-b from-amber-950 to-stone-900 p-3 border-b border-amber-800/60 flex justify-between items-center shadow-lg">
+                        <div>
+                            <div className="text-[10px] text-amber-400 font-bold tracking-widest">鴨爸爸滷味 · 濱海一路門市</div>
+                            <div className="text-base font-black text-amber-300">
+                                🏠 LV.{shopLevel} {shopLevel === 1 ? '路邊攤古早味麵攤' : shopLevel === 2 ? '熱銷排隊名店' : '濱海旗艦總店'}
+                            </div>
+                        </div>
+                        <div className="text-right flex items-center gap-2">
+                            <div>
+                                <div className="text-amber-400 font-black text-xs">營業金: ${money}</div>
+                                <div className="text-amber-200/80 font-bold text-[10px]">總營業額: ${totalRevenue}</div>
+                                <div className="text-[10px] text-stone-400">⭐ 好評 {rep}</div>
+                            </div>
+                            <button onClick={() => setShowShareModal(true)} className="bg-emerald-600 hover:bg-emerald-500 text-white p-2 rounded-xl text-xs font-bold shadow flex flex-col items-center">
+                                <span>🟢</span>
+                                <span className="text-[9px]">分享</span>
+                            </button>
+                        </div>
+                    </div>
+
+                    {/* 主畫面：模擬門市經營 */}
+                    {currentTab === 'shop' && (
+                        <div className="flex-1 p-4 flex flex-col justify-between relative overflow-hidden">
+                            
+                            {/* 顧客點餐區 */}
+                            <div className="bg-stone-900/90 p-4 rounded-2xl border border-amber-800/60 shadow-xl min-h-[150px] flex flex-col justify-between">
+                                {customer ? (
+                                    <div className="order-pop">
+                                        <div className="flex justify-between items-center mb-2">
+                                            <div className="flex items-center gap-2">
+                                                <span className="text-3xl">{customer.avatar}</span>
+                                                <div>
+                                                    <div className="font-bold text-sm text-amber-200">{customer.name}</div>
+                                                    <div className="text-[10px] text-stone-400">耐心值: {customer.timeLeft}s</div>
+                                                </div>
+                                            </div>
+                                            <span className="text-xs bg-amber-950 px-2 py-1 rounded text-amber-400 font-bold">點餐中</span>
+                                        </div>
+
+                                        <div className="bg-stone-950 p-2.5 rounded-xl border border-stone-800 flex items-center gap-2">
+                                            <span className="text-xs text-stone-400">點餐品項:</span>
+                                            {customer.items.map((item, idx) => (
+                                                <div key={idx} className="flex items-center gap-1 bg-stone-900 px-2 py-1 rounded border border-amber-900/40 text-xs">
+                                                    <span>{item.icon}</span>
+                                                    <span className="font-bold text-amber-300">{item.name}</span>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    </div>
+                                ) : (
+                                    <div className="my-auto text-center text-stone-500 text-xs">
+                                        🚶‍♂️ 顧客正朝濱海一路門市走來...
+                                    </div>
+                                )}
+                            </div>
+
+                            {/* 廚房出餐操作檯 */}
+                            <div className="space-y-3 my-auto">
+                                <div className="text-xs font-bold text-amber-400 flex justify-between items-center">
+                                    <span>👨‍🍳 鴨爸爸料理廚房檯</span>
+                                    <span className="text-stone-500">{kitchenStatus === 'COOKING' ? '♨️ 正在料理切盤中...' : '待命模式 (點擊開始製作)'}</span>
+                                </div>
+
+                                <div className="grid grid-cols-2 gap-2.5">
+                                    {MENU_ITEMS.map(item => (
+                                        <button
+                                            key={item.id}
+                                            onClick={() => prepareItem(item)}
+                                            disabled={!customer || kitchenStatus === 'COOKING'}
+                                            className="bg-stone-900 border border-amber-900/50 hover:border-amber-500 p-3 rounded-xl flex items-center justify-between active:scale-95 transition-all disabled:opacity-40"
+                                        >
+                                            <div className="flex items-center gap-2">
+                                                <span className="text-2xl">{item.icon}</span>
+                                                <div className="text-left">
+                                                    <div className="font-bold text-xs text-stone-200">{item.name}</div>
+                                                    <div className="text-[10px] text-amber-400">${item.price}</div>
+                                                </div>
+                                            </div>
+                                            <span className="text-[10px] bg-amber-600/30 text-amber-300 px-2 py-1 rounded font-bold">+製作</span>
+                                        </button>
+                                    ))}
+                                </div>
+                            </div>
+
+                            {/* 升級門市按鈕 */}
+                            <button
+                                onClick={upgradeShop}
+                                className="w-full bg-gradient-to-r from-amber-500 to-yellow-600 text-stone-950 font-black py-3.5 rounded-xl text-sm shadow-lg active:scale-95"
+                            >
+                                🚀 擴大門市等級 (需 ${shopLevel * 350} 營業金)
+                            </button>
+                        </div>
+                    )}
+
+                    {/* 集町快閃預購與門市優惠 */}
+                    {currentTab === 'o2o' && (
+                        <div className="flex-1 p-4 overflow-y-auto space-y-4">
+                            <div className="bg-stone-900 p-4 rounded-2xl border border-amber-600/50">
+                                <h3 className="font-bold text-amber-400 text-sm mb-1">店長成就獎勵 · 實體門市折價券</h3>
+                                <p className="text-xs text-stone-400 mb-3">經營門市達到 LV.2 即可領取現場折抵券</p>
+                                {shopLevel < 2 ? (
+                                    <div className="text-center py-6 bg-stone-950 rounded-xl text-stone-500 text-xs">
+                                        🔒 門市升級至 LV.2 解鎖實體門市 $30 折價券
+                                    </div>
+                                ) : (
+                                    <div className="bg-amber-950/40 p-3 rounded-xl border border-amber-800 flex justify-between items-center">
+                                        <div>
+                                            <div className="font-bold text-amber-300 text-xs">集町快閃預購滿 $200 折 $30 券</div>
+                                            <div className="text-[10px] text-stone-400">高雄濱海一路現場掃碼出示</div>
+                                        </div>
+                                        <button className="bg-amber-500 text-stone-950 px-3 py-1.5 rounded-lg text-xs font-bold">領取優惠</button>
+                                    </div>
+                                )}
+                            </div>
+
+                            <div className="space-y-2">
+                                <h3 className="font-bold text-amber-400 text-sm">集町真空滷味包預購（本週預訂）</h3>
+                                {[
+                                    { name: '真空香滷牛腱', price: 280, desc: '特選牛腱心，秘製老滷慢燉' },
+                                    { name: '真空秘製豬耳朵', price: 150, desc: '煙燻爽脆，下酒絕配' },
+                                    { name: '真空招牌豆干(大)', price: 100, desc: '爆汁吸滿百年老滷汁' },
+                                ].map((item, idx) => (
+                                    <div key={idx} className="bg-stone-900 p-3 rounded-xl border border-stone-800 flex justify-between items-center">
+                                        <div>
+                                            <div className="font-bold text-xs text-stone-200">{item.name}</div>
+                                            <div className="text-[10px] text-stone-500">{item.desc}</div>
+                                        </div>
+                                        <div className="text-right">
+                                            <div className="text-amber-400 font-bold text-xs">${item.price}</div>
+                                            <button className="text-[10px] bg-amber-900/50 text-amber-300 border border-amber-700 px-2 py-0.5 rounded mt-1">加購物車</button>
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+                    )}
+
+                    {/* 分享彈窗 */}
+                    {showShareModal && (
+                        <div className="absolute inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+                            <div className="bg-stone-900 border border-amber-700/60 p-5 rounded-2xl w-full max-w-xs text-center space-y-4">
+                                <h3 className="text-lg font-bold text-amber-300">📢 分享《鴨爸爸滷味大亨》</h3>
+                                <p className="text-xs text-stone-400">發送遊戲給好友，邀請大家一起體驗經營樂趣領折價券！</p>
+                                
+                                <div className="space-y-2">
+                                    <button onClick={handleLineShare} className="w-full bg-emerald-600 text-white font-bold py-2.5 rounded-xl text-xs flex items-center justify-center gap-2">
+                                        <span>🟢</span> 分享至 LINE 好友 / 群組
+                                    </button>
+                                    <button onClick={handleCopyLink} className="w-full bg-stone-800 border border-stone-700 text-stone-200 font-bold py-2.5 rounded-xl text-xs">
+                                        📋 複製遊戲網址
+                                    </button>
+                                </div>
+
+                                <button onClick={() => setShowShareModal(false)} className="text-xs text-stone-500 underline pt-2">
+                                    關閉視窗
+                                </button>
+                            </div>
+                        </div>
+                    )}
+
+                    {/* 底部導覽選單 */}
+                    <div className="bg-stone-900 border-t border-amber-900/60 flex text-stone-400 text-xs">
+                        <button onClick={() => setCurrentTab('shop')} className={`flex-1 py-3.5 text-center font-bold ${currentTab === 'shop' ? 'tab-active' : ''}`}>🍜 鴨爸爸麵攤</button>
+                        <button onClick={() => setCurrentTab('o2o')} className={`flex-1 py-3.5 text-center font-bold ${currentTab === 'o2o' ? 'tab-active' : ''}`}>📦 集町預購與獎勵</button>
+                        <button onClick={() => setShowShareModal(true)} className="flex-1 py-3.5 text-center font-bold text-emerald-400">📲 分享好友</button>
+                    </div>
+                </div>
+            );
+        }
+
+        const root = ReactDOM.createRoot(document.getElementById('root'));
+        root.render(<App />);
+    </script>
+</body>
+</html>
