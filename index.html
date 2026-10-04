@@ -9,7 +9,7 @@
     <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
-        body { font-family: 'PingFang TC', 'Microsoft JhengHei', sans-serif; background-color: #120e0b; color: #eee; select: none; overflow: hidden; -webkit-tap-highlight-color: transparent; }
+        body { font-family: 'PingFang TC', 'Microsoft JhengHei', sans-serif; background-color: #120e0b; color: #eee; user-select: none; overflow: hidden; -webkit-tap-highlight-color: transparent; }
         .order-pop { animation: pop 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275); }
         @keyframes pop { from { transform: scale(0.5); opacity: 0; } to { transform: scale(1); opacity: 1; } }
         .tab-active { border-bottom: 3px solid #f59e0b; color: #fbbf24; font-weight: bold; }
@@ -28,6 +28,12 @@
             { id: 'beef', name: '香滷牛腱', icon: '🥩', price: 120 },
         ];
 
+        const PREORDER_ITEMS = [
+            { id: 'p_beef', name: '真空香滷牛腱', price: 280, desc: '特選牛腱心，秘製老滷慢燉', code: 'BEEF20' },
+            { id: 'p_ear', name: '真空秘製豬耳朵', price: 150, desc: '煙燻爽脆，下酒絕配', code: 'EAR10' },
+            { id: 'p_tofu', name: '真空招牌豆干(大)', price: 100, desc: '爆汁吸滿百年老滷汁', code: 'TOFU10' },
+        ];
+
         const CUSTOMER_TYPES = [
             { name: '西子灣學生', avatar: '🎓', patience: 12 },
             { name: '哈瑪星美食客', avatar: '🛵', patience: 10 },
@@ -37,11 +43,16 @@
 
         function App() {
             const [money, setMoney] = useState(150);
-            const [totalRevenue, setTotalRevenue] = useState(150); // 總營業額累積
+            const [totalRevenue, setTotalRevenue] = useState(150);
             const [rep, setRep] = useState(10);
             const [shopLevel, setShopLevel] = useState(1);
             const [currentTab, setCurrentTab] = useState('shop');
             const [showShareModal, setShowShareModal] = useState(false);
+            const [activeCoupon, setActiveCoupon] = useState(null);
+
+            // 購物車系統 state
+            const [cart, setCart] = useState({});
+            const [showCartModal, setShowCartModal] = useState(false);
 
             const [customer, setCustomer] = useState(null);
             const [orderProgress, setOrderProgress] = useState([]);
@@ -103,7 +114,7 @@
                     if (JSON.stringify(requiredIds) === JSON.stringify(currentIds)) {
                         const totalEarn = customer.items.reduce((sum, i) => sum + i.price, 0);
                         setMoney(m => m + totalEarn);
-                        setTotalRevenue(r => r + totalEarn); // 累積總營業額
+                        setTotalRevenue(r => r + totalEarn);
                         setRep(r => r + 1);
                         alert(`🎉 出餐成功！賺取 $${totalEarn} 營業金！`);
                         setCustomer(null);
@@ -120,7 +131,53 @@
                 }
                 setMoney(m => m - cost);
                 setShopLevel(l => l + 1);
-                alert(`🎊 門市順利升級至 LV.${shopLevel + 1}！知名度大增！`);
+                alert(`🎊 門市順利升級至 LV.${shopLevel + 1}！解鎖門市專屬折價券獎勵！`);
+            };
+
+            // 修正版購物車邏輯
+            const addToCart = (item) => {
+                setCart(prev => {
+                    const currentQty = prev[item.id] ? prev[item.id].qty : 0;
+                    return {
+                        ...prev,
+                        [item.id]: {
+                            ...item,
+                            qty: currentQty + 1
+                        }
+                    };
+                });
+                alert(`🛒 已將【${item.name}】加入購物車！`);
+            };
+
+            const updateCartQty = (id, delta) => {
+                setCart(prev => {
+                    const existing = prev[id];
+                    if (!existing) return prev;
+                    const newQty = existing.qty + delta;
+                    if (newQty <= 0) {
+                        const copy = { ...prev };
+                        delete copy[id];
+                        return copy;
+                    }
+                    return {
+                        ...prev,
+                        [id]: { ...existing, qty: newQty }
+                    };
+                });
+            };
+
+            const cartList = Object.values(cart);
+            const cartTotal = cartList.reduce((sum, item) => sum + item.price * item.qty, 0);
+            const cartTotalCount = cartList.reduce((sum, item) => sum + item.qty, 0);
+
+            const handleCheckout = () => {
+                if (cartList.length === 0) return;
+                const orderText = cartList.map(i => `• ${i.name} x${i.qty} ($${i.price * i.qty})`).join('\n');
+                const fullMsg = `你好！我想預購集町真空滷味：\n${orderText}\n\n預購總金額：$${cartTotal}\n取貨地點：高雄濱海一路門市`;
+                
+                window.open(`https://line.me/R/msg/text/?${encodeURIComponent(fullMsg)}`, '_blank');
+                setCart({});
+                setShowCartModal(false);
             };
 
             const gameUrl = window.location.href.includes('file:') 
@@ -239,6 +296,23 @@
                     {/* 集町快閃預購與門市優惠 */}
                     {currentTab === 'o2o' && (
                         <div className="flex-1 p-4 overflow-y-auto space-y-4">
+                            
+                            {/* 頂部購物車列 */}
+                            <div className="flex justify-between items-center bg-stone-900 p-3 rounded-xl border border-stone-800">
+                                <span className="font-bold text-amber-400 text-xs">📦 集町真空滷味預購區</span>
+                                <button 
+                                    onClick={() => setShowCartModal(true)}
+                                    className="bg-amber-500 hover:bg-amber-400 text-stone-950 px-3 py-1.5 rounded-lg text-xs font-bold flex items-center gap-1 active:scale-95 shadow"
+                                >
+                                    <span>🛒 購物車</span>
+                                    {cartTotalCount > 0 && (
+                                        <span className="bg-red-600 text-white text-[10px] px-1.5 py-0.5 rounded-full font-black ml-1">
+                                            {cartTotalCount}
+                                        </span>
+                                    )}
+                                </button>
+                            </div>
+
                             <div className="bg-stone-900 p-4 rounded-2xl border border-amber-600/50">
                                 <h3 className="font-bold text-amber-400 text-sm mb-1">店長成就獎勵 · 實體門市折價券</h3>
                                 <p className="text-xs text-stone-400 mb-3">經營門市達到 LV.2 即可領取現場折抵券</p>
@@ -252,26 +326,48 @@
                                             <div className="font-bold text-amber-300 text-xs">集町快閃預購滿 $200 折 $30 券</div>
                                             <div className="text-[10px] text-stone-400">高雄濱海一路現場掃碼出示</div>
                                         </div>
-                                        <button className="bg-amber-500 text-stone-950 px-3 py-1.5 rounded-lg text-xs font-bold">領取優惠</button>
+                                        <button 
+                                            onClick={() => setActiveCoupon({
+                                                title: '集町快閃預購滿 $200 折 $30 券',
+                                                code: 'DUCK30',
+                                                desc: '出示此畫面給高雄濱海一路現場門市人員即可直接折抵 $30！'
+                                            })}
+                                            className="bg-amber-500 hover:bg-amber-400 text-stone-950 px-3 py-1.5 rounded-lg text-xs font-bold active:scale-95 shadow"
+                                        >
+                                            領取優惠
+                                        </button>
                                     </div>
                                 )}
                             </div>
 
                             <div className="space-y-2">
                                 <h3 className="font-bold text-amber-400 text-sm">集町真空滷味包預購（本週預訂）</h3>
-                                {[
-                                    { name: '真空香滷牛腱', price: 280, desc: '特選牛腱心，秘製老滷慢燉' },
-                                    { name: '真空秘製豬耳朵', price: 150, desc: '煙燻爽脆，下酒絕配' },
-                                    { name: '真空招牌豆干(大)', price: 100, desc: '爆汁吸滿百年老滷汁' },
-                                ].map((item, idx) => (
-                                    <div key={idx} className="bg-stone-900 p-3 rounded-xl border border-stone-800 flex justify-between items-center">
+                                {PREORDER_ITEMS.map((item) => (
+                                    <div key={item.id} className="bg-stone-900 p-3 rounded-xl border border-stone-800 flex justify-between items-center">
                                         <div>
                                             <div className="font-bold text-xs text-stone-200">{item.name}</div>
                                             <div className="text-[10px] text-stone-500">{item.desc}</div>
                                         </div>
                                         <div className="text-right">
-                                            <div className="text-amber-400 font-bold text-xs">${item.price}</div>
-                                            <button className="text-[10px] bg-amber-900/50 text-amber-300 border border-amber-700 px-2 py-0.5 rounded mt-1">加購物車</button>
+                                            <div className="text-amber-400 font-bold text-xs mb-1">${item.price}</div>
+                                            <div className="flex gap-1.5">
+                                                <button 
+                                                    onClick={() => setActiveCoupon({
+                                                        title: `${item.name} 專屬預購折價券`,
+                                                        code: item.code,
+                                                        desc: `預購 ${item.name} 現場出示可再折抵折扣，現切美味熱騰騰帶回家！`
+                                                    })}
+                                                    className="text-[10px] bg-amber-900/40 text-amber-300 border border-amber-800 px-2 py-1 rounded font-bold hover:bg-amber-800/60 active:scale-95"
+                                                >
+                                                    優惠券
+                                                </button>
+                                                <button 
+                                                    onClick={() => addToCart(item)}
+                                                    className="text-[10px] bg-amber-500 text-stone-950 font-bold px-2.5 py-1 rounded hover:bg-amber-400 active:scale-95 shadow"
+                                                >
+                                                    +加購物車
+                                                </button>
+                                            </div>
                                         </div>
                                     </div>
                                 ))}
@@ -279,7 +375,91 @@
                         </div>
                     )}
 
-                    {/* 分享彈窗 */}
+                    {/* 購物車 Modal */}
+                    {showCartModal && (
+                        <div className="absolute inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+                            <div className="bg-stone-900 border border-amber-600/80 p-5 rounded-2xl w-full max-w-xs space-y-4 shadow-2xl">
+                                <div className="flex justify-between items-center border-b border-stone-800 pb-2">
+                                    <h3 className="text-base font-bold text-amber-300">🛒 集町預購購物車</h3>
+                                    <button onClick={() => setShowCartModal(false)} className="text-stone-500 text-xs font-bold px-2 py-1">✕</button>
+                                </div>
+
+                                {cartList.length === 0 ? (
+                                    <div className="text-center py-8 text-stone-500 text-xs">
+                                        購物車目前是空的，快去挑選真空滷味吧！
+                                    </div>
+                                ) : (
+                                    <div className="space-y-3 max-h-56 overflow-y-auto">
+                                        {cartList.map(item => (
+                                            <div key={item.id} className="flex justify-between items-center bg-stone-950 p-2.5 rounded-xl border border-stone-800">
+                                                <div>
+                                                    <div className="font-bold text-xs text-stone-200">{item.name}</div>
+                                                    <div className="text-[10px] text-amber-400">${item.price * item.qty}</div>
+                                                </div>
+                                                <div className="flex items-center gap-2 bg-stone-900 px-2 py-1 rounded border border-stone-700">
+                                                    <button onClick={() => updateCartQty(item.id, -1)} className="text-amber-400 font-bold text-xs px-1.5 py-0.5">-</button>
+                                                    <span className="text-xs font-bold text-stone-200">{item.qty}</span>
+                                                    <button onClick={() => updateCartQty(item.id, 1)} className="text-amber-400 font-bold text-xs px-1.5 py-0.5">+</button>
+                                                </div>
+                                            </div>
+                                        ))}
+                                    </div>
+                                )}
+
+                                {cartList.length > 0 && (
+                                    <div className="border-t border-stone-800 pt-3 space-y-3">
+                                        <div className="flex justify-between items-center font-bold text-sm">
+                                            <span className="text-stone-300">預購總金額：</span>
+                                            <span className="text-amber-400 text-base">${cartTotal}</span>
+                                        </div>
+                                        <button 
+                                            onClick={handleCheckout}
+                                            className="w-full bg-emerald-600 hover:bg-emerald-500 text-white font-bold py-2.5 rounded-xl text-xs active:scale-95 shadow flex items-center justify-center gap-1"
+                                        >
+                                            <span>🟢</span> 送出預購訂單至 LINE
+                                        </button>
+                                    </div>
+                                )}
+
+                                <button onClick={() => setShowCartModal(false)} className="text-xs text-stone-500 underline block mx-auto pt-1">
+                                    關閉視窗
+                                </button>
+                            </div>
+                        </div>
+                    )}
+
+                    {/* 優惠券 Modal */}
+                    {activeCoupon && (
+                        <div className="absolute inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+                            <div className="bg-stone-900 border border-amber-500/80 p-5 rounded-2xl w-full max-w-xs text-center space-y-4 shadow-2xl">
+                                <div className="text-3xl">🎟️</div>
+                                <h3 className="text-base font-bold text-amber-300">{activeCoupon.title}</h3>
+                                <p className="text-xs text-stone-300 leading-relaxed">{activeCoupon.desc}</p>
+                                
+                                <div className="bg-stone-950 p-3 rounded-xl border border-dashed border-amber-500/50">
+                                    <div className="text-[10px] text-stone-400 mb-1">折扣優惠碼</div>
+                                    <div className="text-xl font-black tracking-widest text-amber-400">{activeCoupon.code}</div>
+                                </div>
+
+                                <button 
+                                    onClick={() => {
+                                        navigator.clipboard.writeText(activeCoupon.code);
+                                        alert(`✅ 折扣碼 ${activeCoupon.code} 已複製！前往濱海一路門市出示即可使用！`);
+                                        setActiveCoupon(null);
+                                    }} 
+                                    className="w-full bg-gradient-to-r from-amber-500 to-yellow-600 text-stone-950 font-bold py-2.5 rounded-xl text-xs active:scale-95 shadow"
+                                >
+                                    複製折扣碼並出示
+                                </button>
+
+                                <button onClick={() => setActiveCoupon(null)} className="text-xs text-stone-500 underline pt-1 block mx-auto">
+                                    關閉優惠券
+                                </button>
+                            </div>
+                        </div>
+                    )}
+
+                    {/* 分享 Modal */}
                     {showShareModal && (
                         <div className="absolute inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
                             <div className="bg-stone-900 border border-amber-700/60 p-5 rounded-2xl w-full max-w-xs text-center space-y-4">
@@ -313,7 +493,7 @@
         }
 
         const root = ReactDOM.createRoot(document.getElementById('root'));
-        root.render(<App />);
+        root.render(<App/>);
     </script>
 </body>
 </html>
