@@ -31,9 +31,24 @@
         ];
 
         const CUSTOMER_TYPES = [
-            { name: '西子灣學生', avatar: '🎓', patience: 14 },
-            { name: '哈瑪星美食客', avatar: '🛵', patience: 12 },
-            { name: '濱海一路老街坊', avatar: '👵', patience: 16 },
+            { name: '西子灣學生', avatar: '🎓', patience: 15 },
+            { name: '哈瑪星美食客', avatar: '🛵', patience: 14 },
+            { name: '濱海一路老街坊', avatar: '👵', patience: 18 },
+            { name: '集町團購團友', avatar: '📦', patience: 20 },
+        ];
+
+        // 10 級門市升級地圖配置
+        const SHOP_LEVELS = [
+            { level: 1, name: '濱海古早味麵攤', reqRep: 0, reqMoney: 0, buff: '基礎出餐模式' },
+            { level: 2, name: '社區排隊名店', reqRep: 15, reqMoney: 300, buff: '顧客耐心 +2 秒' },
+            { level: 3, name: '哈瑪星美食地標', reqRep: 35, reqMoney: 800, buff: '解鎖實體團購取貨點' },
+            { level: 4, name: '集町聯合發貨站', reqRep: 60, reqMoney: 1500, buff: '出餐獲利額外 +10%' },
+            { level: 5, name: '鼓山區網路名店', reqRep: 100, reqMoney: 3000, buff: '顧客滿意小費翻倍' },
+            { level: 6, name: '祕製老滷旗艦店', reqRep: 150, reqMoney: 5000, buff: '獲得助手「阿傑」協助出餐' },
+            { level: 7, name: '高雄人氣老字號', reqRep: 220, reqMoney: 8000, buff: '所有餐點售價永久 +$10' },
+            { level: 8, name: '跨區連盟配送中心', reqRep: 300, reqMoney: 12000, buff: '解鎖隱藏霸王拼盤' },
+            { level: 9, name: '百年傳承老滷王', reqRep: 400, reqMoney: 18000, buff: '好評升級速度加倍' },
+            { level: 10, name: '鴨爸爸餐飲帝國', reqRep: 500, reqMoney: 25000, buff: '榮登鼓山美食帝王榜' },
         ];
 
         function App() {
@@ -57,20 +72,24 @@
 
             const [playerPos, setPlayerPos] = useState('center');
 
+            const currentShopInfo = SHOP_LEVELS.find(s => s.level === shopLevel) || SHOP_LEVELS[0];
+            const nextShopInfo = SHOP_LEVELS.find(s => s.level === shopLevel + 1);
+
             useEffect(() => {
                 const interval = setInterval(() => {
                     if (!currentCustomer) {
                         const type = CUSTOMER_TYPES[Math.floor(Math.random() * CUSTOMER_TYPES.length)];
                         const requestedItem = MENU_ITEMS[Math.floor(Math.random() * MENU_ITEMS.length)];
+                        const patienceBonus = shopLevel >= 2 ? 2 : 0;
                         setCurrentCustomer({
                             ...type,
                             order: requestedItem,
-                            timeLeft: type.patience
+                            timeLeft: type.patience + patienceBonus
                         });
                     }
                 }, 2000);
                 return () => clearInterval(interval);
-            }, [currentCustomer]);
+            }, [currentCustomer, shopLevel]);
 
             useEffect(() => {
                 if (!currentCustomer) return;
@@ -102,14 +121,17 @@
                 setTimeout(() => {
                     if (carriedItem && currentCustomer) {
                         if (carriedItem.id === currentCustomer.order.id || carriedItem.name === currentCustomer.order.name) {
-                            const earn = carriedItem.price;
-                            setMoney(m => m + earn);
-                            setTotalRevenue(r => r + earn);
+                            let baseEarn = carriedItem.price;
+                            if (shopLevel >= 4) baseEarn = Math.round(baseEarn * 1.1);
+                            if (shopLevel >= 7) baseEarn += 10;
+
+                            setMoney(m => m + baseEarn);
+                            setTotalRevenue(r => r + baseEarn);
                             setRep(r => r + 1);
                             setCarriedItem(null);
                             setCurrentCustomer(null);
                             setPlayerPos('center');
-                            alert(`🎉 成功送餐【${carriedItem.name}】！賺取 $${earn} 營業金，⭐ 好評度 +1！`);
+                            alert(`🎉 成功送餐【${carriedItem.name}】！賺取 $${baseEarn} 營業金，⭐ 好評度 +1！`);
                         } else {
                             setRep(r => Math.max(0, r - 1));
                             alert(`❌ 送錯菜了！客人想吃的是【${currentCustomer.order.name}】！⭐ 好評度 -1！`);
@@ -120,32 +142,25 @@
                 }, 400);
             };
 
-            const getUpgradeReq = () => {
-                if (shopLevel === 1) return { reqRep: 20, reqMoney: 500, title: 'LV.2 排隊名店' };
-                if (shopLevel === 2) return { reqRep: 50, reqMoney: 1200, title: 'LV.3 濱海旗艦總店' };
-                return null;
-            };
-
             const upgradeShop = () => {
-                const req = getUpgradeReq();
-                if (!req) {
-                    alert('門市已達最高等級！');
+                if (!nextShopInfo) {
+                    alert('🎊 恭喜！您已將鴨爸爸門市升級至最高等級【鴨爸爸餐飲帝國】！');
                     return;
                 }
 
-                if (rep < req.reqRep) {
-                    alert(`升級條件不足！需要 ⭐ 好評度達到 ${req.reqRep} 星（目前 ${rep} 星）！請多服務顧客並做出正確餐點！`);
+                if (rep < nextShopInfo.reqRep) {
+                    alert(`升級條件不足！需要 ⭐ 好評度達到 ${nextShopInfo.reqRep} 星（目前 ${rep} 星）！`);
                     return;
                 }
 
-                if (money < req.reqMoney) {
-                    alert(`營業金不足！升級至 ${req.title} 需要 $${req.reqMoney}（目前 $${money}）！`);
+                if (money < nextShopInfo.reqMoney) {
+                    alert(`營業金不足！升級至 LV.${nextShopInfo.level}【${nextShopInfo.name}】需要 $${nextShopInfo.reqMoney}（目前 $${money}）！`);
                     return;
                 }
 
-                setMoney(m => m - req.reqMoney);
+                setMoney(m => m - nextShopInfo.reqMoney);
                 setShopLevel(l => l + 1);
-                alert(`🎊 恭喜！鴨爸爸門市順利升級至 ${req.title}！聲譽遠播！`);
+                alert(`🎊 恭喜！鴨爸爸門市順利升級至 LV.${nextShopInfo.level}【${nextShopInfo.name}】！\n解鎖特權：${nextShopInfo.buff}`);
             };
 
             const resetGameData = () => {
@@ -174,14 +189,12 @@
                 alert('📋 遊戲網址已複製！快發給 LINE 好友或社群群組！');
             };
 
-            // 安全不虧本的優惠任務設計
             const TASKS = [
                 { id: 't1', title: '【初露鋒芒】⭐ 好評度達到 10 星', reward: '現場滿 $100 免費招待「香滷蛋」乙顆', code: 'EGG-FREE', isDone: rep >= 10 },
                 { id: 't2', title: '【熟能生巧】⭐ 好評度達到 25 星', reward: '現場滿 $180 免費招待「豆干+滷蛋」小菜雙拼', code: 'SIDE-FREE', isDone: rep >= 25 },
                 { id: 't3', title: '【濱海店長】⭐ 好評度達到 50 星', reward: '【集町團購】抽取式衛生紙 1 包免費領', code: 'TISSUE-FREE', isDone: rep >= 50 },
+                { id: 't4', title: '【鼓山之光】⭐ 好評度達到 100 星', reward: '現場消費享單筆結帳 9 折優惠', code: 'DUCK-90', isDone: rep >= 100 },
             ];
-
-            const upgradeInfo = getUpgradeReq();
 
             return (
                 <div className="max-w-md mx-auto h-screen flex flex-col bg-stone-950 text-stone-100 select-none relative">
@@ -191,7 +204,7 @@
                         <div>
                             <div className="text-[10px] text-amber-400 font-bold tracking-widest">鴨爸爸滷味 · 濱海一路門市</div>
                             <div className="text-base font-black text-amber-300">
-                                🏠 LV.{shopLevel} {shopLevel === 1 ? '古早味麵攤' : shopLevel === 2 ? '排隊名店' : '濱海旗艦總店'}
+                                🏠 LV.{shopLevel} {currentShopInfo.name}
                             </div>
                         </div>
                         <div className="text-right flex items-center gap-2">
@@ -269,10 +282,11 @@
                                 </div>
 
                                 <div className="text-center text-[10px] text-stone-500 z-10">
-                                    📍 高雄濱海一路門市經營中
+                                    當前加成：{currentShopInfo.buff}
                                 </div>
                             </div>
 
+                            {/* 做菜點餐按鈕區 */}
                             <div className="bg-stone-900 p-3 rounded-2xl border border-stone-800 space-y-2">
                                 <div className="text-[10px] text-amber-400 font-bold flex justify-between items-center">
                                     <span>👨‍🍳 選擇菜色做餐：</span>
@@ -303,7 +317,7 @@
                                     onClick={upgradeShop} 
                                     className="bg-amber-500 hover:bg-amber-400 text-stone-950 font-black px-3 py-1.5 rounded-lg text-xs active:scale-95 shadow"
                                 >
-                                    🚀 升級門市 {upgradeInfo ? `(需 ⭐${upgradeInfo.reqRep}星 + $${upgradeInfo.reqMoney})` : '(最高等級)'}
+                                    🚀 升級門市 {nextShopInfo ? `(需 ⭐${nextShopInfo.reqRep}星 + $${nextShopInfo.reqMoney})` : '(帝國頂峰)'}
                                 </button>
                                 <button onClick={resetGameData} className="underline text-stone-600 hover:text-stone-400">重置存檔</button>
                             </div>
