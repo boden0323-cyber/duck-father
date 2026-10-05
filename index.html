@@ -20,7 +20,6 @@
     <script type="text/babel">
         const { useState, useEffect, useRef } = React;
 
-        // 濱海一路門市現場菜單
         const MENU_ITEMS = [
             { id: 'noodle_dry', name: '古早味乾麵', icon: '🍜', price: 50 },
             { id: 'noodle_sesame', name: '香濃麻醬麵', icon: '🍜', price: 55 },
@@ -32,19 +31,17 @@
         ];
 
         const CUSTOMER_TYPES = [
-            { name: '西子灣學生', avatar: '🎓', patience: 14 },
+            { name: '西子灣學生', avatar: '🎓', patience: 15 },
             { name: '哈瑪星美食客', avatar: '🛵', patience: 12 },
-            { name: '濱海一路老街坊', avatar: '👵', patience: 16 },
+            { name: '濱海一路老街坊', avatar: '👵', patience: 18 },
         ];
 
         function App() {
-            // 從 localStorage 自動恢復存檔
             const [money, setMoney] = useState(() => Number(localStorage.getItem('duck_money') || 150));
             const [totalRevenue, setTotalRevenue] = useState(() => Number(localStorage.getItem('duck_revenue') || 150));
             const [rep, setRep] = useState(() => Number(localStorage.getItem('duck_rep') || 10));
             const [shopLevel, setShopLevel] = useState(() => Number(localStorage.getItem('duck_level') || 1));
 
-            // 自動存檔
             useEffect(() => { localStorage.setItem('duck_money', money); }, [money]);
             useEffect(() => { localStorage.setItem('duck_revenue', totalRevenue); }, [totalRevenue]);
             useEffect(() => { localStorage.setItem('duck_rep', rep); }, [rep]);
@@ -53,13 +50,12 @@
             const [currentTab, setCurrentTab] = useState('arcade');
             const [activeCoupon, setActiveCoupon] = useState(null);
 
-            // 當前顧客 state
             const [currentCustomer, setCurrentCustomer] = useState(null);
             const [cookingItem, setCookingItem] = useState(null);
 
             const canvasRef = useRef(null);
 
-            // 定時產生顧客與點餐邏輯
+            // 產生顧客邏輯
             useEffect(() => {
                 const interval = setInterval(() => {
                     if (!currentCustomer) {
@@ -71,11 +67,11 @@
                             timeLeft: type.patience
                         });
                     }
-                }, 3000);
+                }, 2000);
                 return () => clearInterval(interval);
             }, [currentCustomer]);
 
-            // 顧客耐心計時
+            // 耐心計時
             useEffect(() => {
                 if (!currentCustomer) return;
                 const timer = setInterval(() => {
@@ -83,7 +79,7 @@
                         if (!prev) return null;
                         if (prev.timeLeft <= 1) {
                             setRep(r => Math.max(0, r - 1));
-                            return null; // 生氣離開
+                            return null;
                         }
                         return { ...prev, timeLeft: prev.timeLeft - 1 };
                     });
@@ -91,7 +87,7 @@
                 return () => clearInterval(timer);
             }, [currentCustomer]);
 
-            // Canvas 2D 卡通小人與動態出餐
+            // Canvas 平滑移動（修復卡住退回）
             useEffect(() => {
                 if (currentTab !== 'arcade' || !canvasRef.current) return;
 
@@ -109,8 +105,9 @@
                     const rect = canvas.getBoundingClientRect();
                     const clientX = e.touches ? e.touches[0].clientX : e.clientX;
                     const clientY = e.touches ? e.touches[0].clientY : e.clientY;
-                    targetX = Math.max(30, Math.min(310, clientX - rect.left));
-                    targetY = Math.max(30, Math.min(290, clientY - rect.top));
+                    // 放寬移動範圍，不設太嚴格的阻擋邊界
+                    targetX = Math.max(20, Math.min(320, clientX - rect.left));
+                    targetY = Math.max(20, Math.min(300, clientY - rect.top));
                 };
 
                 canvas.addEventListener('mousemove', handlePointerMove);
@@ -122,7 +119,7 @@
                 const render = () => {
                     ctx.clearRect(0, 0, 340, 320);
 
-                    // 1. 地板繪製
+                    // 1. 地板
                     ctx.fillStyle = '#2d2420'; ctx.fillRect(0, 0, 340, 320);
                     ctx.strokeStyle = '#3e312c'; ctx.lineWidth = 1;
                     for (let i = 0; i < 340; i += 40) {
@@ -130,71 +127,70 @@
                         ctx.beginPath(); ctx.moveTo(0, i); ctx.lineTo(340, i); ctx.stroke();
                     }
 
-                    // 2. 廚房區：老滷檯 (左上)
-                    ctx.fillStyle = '#78350f'; ctx.fillRect(15, 15, 110, 75);
-                    ctx.fillStyle = '#451a03'; ctx.fillRect(20, 20, 100, 65);
+                    // 2. 廚房檯 (左上)
+                    ctx.fillStyle = '#78350f'; ctx.fillRect(10, 10, 115, 80);
+                    ctx.fillStyle = '#451a03'; ctx.fillRect(15, 15, 105, 70);
                     ctx.fillStyle = '#fff'; ctx.font = '11px sans-serif'; 
-                    ctx.fillText('♨️ 廚房備餐檯', 28, 38);
+                    ctx.fillText('♨️ 廚房備餐檯', 22, 35);
                     if (cookingItem) {
                         ctx.fillStyle = '#fbbf24';
-                        ctx.fillText(`製作中: ${cookingItem.icon}${cookingItem.name}`, 25, 60);
+                        ctx.fillText(`已好: ${cookingItem.icon}${cookingItem.name}`, 20, 58);
                     } else {
                         ctx.fillStyle = '#9ca3af';
-                        ctx.fillText('請在下方點擊做菜', 25, 60);
+                        ctx.fillText('請在下方點擊做菜', 20, 58);
                     }
 
-                    // 3. 點餐櫃檯與顧客 (右上)
-                    ctx.fillStyle = '#1e3a8a'; ctx.fillRect(215, 15, 110, 75);
-                    ctx.fillStyle = '#1e293b'; ctx.fillRect(220, 20, 100, 65);
+                    // 3. 顧客檯 (右上)
+                    ctx.fillStyle = '#1e3a8a'; ctx.fillRect(215, 10, 115, 80);
+                    ctx.fillStyle = '#1e293b'; ctx.fillRect(220, 15, 105, 70);
                     if (currentCustomer) {
                         ctx.fillStyle = '#fef08a';
-                        ctx.fillText(`${currentCustomer.avatar} ${currentCustomer.name}`, 225, 38);
+                        ctx.fillText(`${currentCustomer.avatar} ${currentCustomer.name}`, 225, 33);
                         ctx.fillStyle = '#f59e0b'; ctx.font = 'bold 12px sans-serif';
-                        ctx.fillText(`想吃: ${currentCustomer.order.icon}${currentCustomer.order.name}`, 225, 58);
+                        ctx.fillText(`想吃: ${currentCustomer.order.icon}${currentCustomer.order.name}`, 225, 53);
                         ctx.fillStyle = '#ef4444'; ctx.font = '10px sans-serif';
-                        ctx.fillText(`⏳ 耐心: ${currentCustomer.timeLeft}s`, 225, 75);
+                        ctx.fillText(`⏳ 耐心: ${currentCustomer.timeLeft}s`, 225, 72);
                     } else {
                         ctx.fillStyle = '#9ca3af'; ctx.font = '11px sans-serif';
-                        ctx.fillText('🚶 等候顧客中...', 230, 50);
+                        ctx.fillText('🚶 等候顧客中...', 228, 50);
                     }
 
-                    // 4. 小人平滑移動
+                    // 4. 小人平滑逼近目標點（完全無硬性反彈機制）
                     const dx = targetX - playerX;
                     const dy = targetY - playerY;
                     const dist = Math.sqrt(dx * dx + dy * dy);
 
-                    if (dist > 3) {
-                        playerX += (dx / dist) * 2.8;
-                        playerY += (dy / dist) * 2.8;
-                        walkCycle += 0.2;
+                    if (dist > 2) {
+                        playerX += (dx / dist) * 3.5;
+                        playerY += (dy / dist) * 3.5;
+                        walkCycle += 0.25;
                     }
 
-                    // 區域感應：取餐與送餐
+                    // 5. 區域觸發感應（加大感應半徑至 70px，走近就拿/出餐）
                     const now = Date.now();
-                    if (now - lastCheck > 400) {
+                    if (now - lastCheck > 250) {
                         lastCheck = now;
 
                         // 取餐感應 (靠近左上)
-                        if (Math.hypot(playerX - 70, playerY - 55) < 55 && cookingItem && !carriedItem) {
+                        if (Math.hypot(playerX - 65, playerY - 50) < 70 && cookingItem && !carriedItem) {
                             carriedItem = cookingItem;
                             setCookingItem(null);
                         }
 
                         // 出餐感應 (靠近右上)
-                        if (Math.hypot(playerX - 270, playerY - 55) < 55 && carriedItem && currentCustomer) {
-                            // 檢查是否送對餐點
+                        if (Math.hypot(playerX - 270, playerY - 50) < 70 && carriedItem && currentCustomer) {
                             if (carriedItem.id === currentCustomer.order.id) {
                                 const earn = carriedItem.price;
                                 setMoney(m => m + earn);
                                 setTotalRevenue(r => r + earn);
-                                setRep(r => r + 1); // 好評 +1
+                                setRep(r => r + 1);
                                 carriedItem = null;
                                 setCurrentCustomer(null);
                             }
                         }
                     }
 
-                    // 5. 繪製卡通鴨爸爸小人
+                    // 6. 繪製鴨爸爸小人
                     ctx.save();
                     ctx.translate(playerX, playerY);
 
@@ -220,7 +216,7 @@
                     ctx.beginPath(); ctx.arc(0, -22, 10, 0, Math.PI*2); ctx.fill();
                     ctx.fillRect(-8, -20, 16, 5);
 
-                    // 頭頂端菜
+                    // 端菜動態
                     if (carriedItem) {
                         ctx.fillStyle = '#78350f'; ctx.fillRect(-14, -38, 28, 10);
                         ctx.fillStyle = '#fff'; ctx.font = '12px sans-serif';
@@ -263,7 +259,6 @@
                 }
             };
 
-            // 每日任務定義
             const TASKS = [
                 { id: 't1', title: '【初露鋒芒】累積總營業額達 $500', reward: '門市免費招待「香滷蛋」乙顆', code: 'EGG-FREE', isDone: totalRevenue >= 500 },
                 { id: 't2', title: '【熟能生巧】⭐ 好評度達到 15 星', reward: '門市消費滿 $200 折 $30 券', code: 'DUCK-30', isDone: rep >= 15 },
@@ -298,15 +293,15 @@
                             {/* 點擊製作菜色按鈕區 */}
                             <div className="bg-stone-900 p-2.5 rounded-xl border border-stone-800">
                                 <div className="text-[10px] text-amber-400 font-bold mb-1.5 flex justify-between">
-                                    <span>👨‍🍳 選擇製作菜色：</span>
-                                    <span>{currentCustomer ? `顧客想吃：${currentCustomer.order.icon}${currentCustomer.order.name}` : '等候顧客中'}</span>
+                                    <span>👨‍🍳 點擊下方做餐，再滑動小人去端餐：</span>
+                                    <span>{currentCustomer ? `需求：${currentCustomer.order.icon}${currentCustomer.order.name}` : '等候顧客'}</span>
                                 </div>
                                 <div className="grid grid-cols-4 gap-1.5">
                                     {MENU_ITEMS.map(item => (
                                         <button
                                             key={item.id}
                                             onClick={() => setCookingItem(item)}
-                                            className="bg-stone-950 border border-amber-900/40 p-1.5 rounded-lg text-center active:scale-95"
+                                            className="bg-stone-950 border border-amber-900/40 p-1.5 rounded-lg text-center active:scale-95 hover:border-amber-500"
                                         >
                                             <div className="text-base">{item.icon}</div>
                                             <div className="text-[9px] font-bold text-stone-300 truncate">{item.name}</div>
