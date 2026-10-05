@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>鴨爸爸 x 集町： Arcade Idle 卡通滷味大亨</title>
+    <title>鴨爸爸滷味大亨：濱海一路門市實體兌換版</title>
     <script src="https://unpkg.com/react@18/umd/react.development.js"></script>
     <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
     <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
@@ -11,7 +11,7 @@
     <style>
         body { font-family: 'PingFang TC', 'Microsoft JhengHei', sans-serif; background-color: #120e0b; color: #eee; user-select: none; overflow: hidden; -webkit-tap-highlight-color: transparent; }
         .tab-active { border-bottom: 3px solid #f59e0b; color: #fbbf24; font-weight: bold; }
-        #canvas-container { position: relative; width: 340px; height: 350px; margin: 0 auto; border-radius: 16px; overflow: hidden; border: 2px solid #78350f; box-shadow: 0 10px 25px rgba(0,0,0,0.5); }
+        #canvas-container { position: relative; width: 340px; height: 320px; margin: 0 auto; border-radius: 16px; overflow: hidden; border: 2px solid #78350f; box-shadow: 0 10px 25px rgba(0,0,0,0.5); }
     </style>
 </head>
 <body>
@@ -20,16 +20,51 @@
     <script type="text/babel">
         const { useState, useEffect, useRef } = React;
 
-        const PREORDER_ITEMS = [
-            { id: 'p_beef', name: '真空香滷牛腱', price: 280, desc: '特選牛腱心，秘製老滷慢燉', code: 'BEEF20' },
-            { id: 'p_ear', name: '真空秘製豬耳朵', price: 150, desc: '煙燻爽脆，下酒絕配', code: 'EAR10' },
-            { id: 'p_tofu', name: '真空招牌豆干(大)', price: 100, desc: '爆汁吸滿百年老滷汁', code: 'TOFU10' },
+        // 濱海一路門市現場菜單全集
+        const MENU_ITEMS = [
+            // 麵食類
+            { id: 'noodle_dry', name: '古早味乾麵', icon: '🍜', price: 50, cat: 'noodle' },
+            { id: 'noodle_sesame', name: '香濃麻醬麵', icon: '🍜', price: 55, cat: 'noodle' },
+            { id: 'noodle_rice', name: '懷舊米粉湯', icon: '🍲', price: 50, cat: 'noodle' },
+
+            // 招牌黑白切滷味
+            { id: 'tofu', name: '招牌豆干', icon: '🧈', price: 30, cat: 'luwei' },
+            { id: 'kelp', name: '爽口海帶', icon: '🌿', price: 30, cat: 'luwei' },
+            { id: 'ear', name: '秘製豬耳朵', icon: '🐷', price: 60, cat: 'luwei' },
+            { id: 'pig_head', name: '香滷豬頭皮', icon: '🐷', price: 60, cat: 'luwei' },
+            { id: 'pig_skin', name: 'Q彈豬皮', icon: '🥓', price: 30, cat: 'luwei' },
+            { id: 'intestine', name: '香滷大腸頭', icon: '🍢', price: 100, cat: 'luwei' },
+            { id: 'egg', name: '爆汁滷蛋', icon: '🥚', price: 15, cat: 'luwei' },
+            { id: 'duck_intestine', name: '脆口鴨腸', icon: '🥢', price: 60, cat: 'luwei' },
+            { id: 'duck_liver', name: '粉嫩鴨肝', icon: '🟤', price: 40, cat: 'luwei' },
+            { id: 'duck_wing', name: '香滷鴨翅', icon: '🍗', price: 35, cat: 'luwei' },
+            { id: 'duck_gizzard', name: '嚼勁鴨腱', icon: '🍖', price: 50, cat: 'luwei' },
+            { id: 'pig_tongue', name: '嫩滷豬舌頭', icon: '👅', price: 70, cat: 'luwei' },
+            { id: 'pig_pipe', name: '爽脆豬軟管', icon: '🦴', price: 60, cat: 'luwei' },
+
+            // 暖心湯品
+            { id: 'soup_wonton', name: '鮮美餛飩湯', icon: '🥣', price: 45, cat: 'soup' },
+            { id: 'soup_fishball', name: '彈牙魚丸湯', icon: '🍡', price: 35, cat: 'soup' },
+            { id: 'soup_meatball', name: '扎實貢丸湯', icon: '🧆', price: 35, cat: 'soup' },
+
+            // 遊戲趣味隱藏彩蛋料理
+            { id: 'special_feet', name: '霸王鴨掌', icon: '🦆', price: 80, cat: 'special' },
+            { id: 'special_king', name: '秘製老滷大霸王拼盤', icon: '👑', price: 200, cat: 'special' }
         ];
 
+        // 門市現場實體兌換獎勵 (O2O 導流閉環)
         const REAL_REWARDS = [
-            { id: 'r_tissue', name: '【集町團購】抽取式衛生紙 1 包', costType: 'revenue', cost: 1500, icon: '🧻', desc: '操控鴨爸爸切滷味累積總營業額 $1500，憑券至濱海一路門市或團購免費領取！', code: 'TISSUE-FREE' },
-            { id: 'r_tofu', name: '【鴨爸爸門市】招牌豆干 乙份', costType: 'revenue', cost: 800, icon: '🧈', desc: '現場消費出示，免費招待現切爆汁招牌豆干！', code: 'TOFU-FREE' },
-            { id: 'r_coupon', name: '【集町預購】滿 $300 折 $50 優惠券', costType: 'level', cost: 2, icon: '🎟️', desc: '門市升級至 LV.2 解鎖，全系列真空包/生活用品適用！', code: 'JITING-50' },
+            { id: 'r_tissue', name: '【集町團購】抽取式衛生紙 1 包', costType: 'revenue', cost: 1500, icon: '🧻', desc: '做菜累積總營業額 $1500，憑券至高雄濱海一路門市現場免費領取！', code: 'TISSUE-FREE' },
+            { id: 'r_tofu', name: '【門市招待】現切招牌豆干 乙份', costType: 'revenue', cost: 800, icon: '🧈', desc: '現場消費出示，免費招待爆汁現切招牌豆干乙份！', code: 'TOFU-FREE' },
+            { id: 'r_egg', name: '【門市招待】入味香滷蛋 乙顆', costType: 'revenue', cost: 500, icon: '🥚', desc: '現場消費出示，免費加菜香滷蛋乙顆！', code: 'EGG-FREE' },
+            { id: 'r_coupon', name: '【現場消費】滿 $200 折 $30 優惠券', costType: 'level', cost: 2, icon: '🎟️', desc: '門市升級至 LV.2 解鎖，現場結帳直接折抵 $30！', code: 'DUCK-30' },
+        ];
+
+        const CUSTOMER_TYPES = [
+            { name: '西子灣學生', avatar: '🎓', patience: 12 },
+            { name: '哈瑪星美食客', avatar: '🛵', patience: 10 },
+            { name: '濱海一路老街坊', avatar: '👵', patience: 15 },
+            { name: '集町團購團友', avatar: '📦', patience: 18 },
         ];
 
         function App() {
@@ -47,14 +82,11 @@
 
             const [currentTab, setCurrentTab] = useState('arcade');
             const [activeCoupon, setActiveCoupon] = useState(null);
-
-            // 購物車系統
-            const [cart, setCart] = useState({});
-            const [showCartModal, setShowCartModal] = useState(false);
+            const [selectedCategory, setSelectedCategory] = useState('all');
 
             const canvasRef = useRef(null);
 
-            // Canvas 2D Arcade Idle 動態繪繪與操控
+            // Canvas 2D 卡通 Arcade Idle 遊戲繪製
             useEffect(() => {
                 if (currentTab !== 'arcade' || !canvasRef.current) return;
 
@@ -62,20 +94,19 @@
                 const ctx = canvas.getContext('2d');
 
                 let playerX = 170;
-                let playerY = 220;
+                let playerY = 200;
                 let targetX = 170;
-                let targetY = 220;
+                let targetY = 200;
                 let carriedFood = 0;
                 const maxCarry = 3;
                 let walkCycle = 0;
 
-                // 觸控 / 滑動位置控制
                 const handlePointerMove = (e) => {
                     const rect = canvas.getBoundingClientRect();
                     const clientX = e.touches ? e.touches[0].clientX : e.clientX;
                     const clientY = e.touches ? e.touches[0].clientY : e.clientY;
                     targetX = Math.max(30, Math.min(310, clientX - rect.left));
-                    targetY = Math.max(30, Math.min(320, clientY - rect.top));
+                    targetY = Math.max(30, Math.min(290, clientY - rect.top));
                 };
 
                 canvas.addEventListener('mousemove', handlePointerMove);
@@ -85,35 +116,30 @@
                 let lastTime = Date.now();
 
                 const render = () => {
-                    ctx.clearRect(0, 0, 340, 350);
+                    ctx.clearRect(0, 0, 340, 320);
 
-                    // 1. 繪製精細門市地板
-                    ctx.fillStyle = '#2d2420';
-                    ctx.fillRect(0, 0, 340, 350);
-
-                    // 木紋磚地毯
-                    ctx.strokeStyle = '#3e312c';
-                    ctx.lineWidth = 1;
+                    // 1. 地板與氛圍繪製
+                    ctx.fillStyle = '#2d2420'; ctx.fillRect(0, 0, 340, 320);
+                    ctx.strokeStyle = '#3e312c'; ctx.lineWidth = 1;
                     for (let i = 0; i < 340; i += 40) {
-                        ctx.beginPath(); ctx.moveTo(i, 0); ctx.lineTo(i, 350); ctx.stroke();
+                        ctx.beginPath(); ctx.moveTo(i, 0); ctx.lineTo(i, 320); ctx.stroke();
                         ctx.beginPath(); ctx.moveTo(0, i); ctx.lineTo(340, i); ctx.stroke();
                     }
 
-                    // 2. 廚房區：滷味檯 (左上)
-                    ctx.fillStyle = '#78350f'; ctx.fillRect(20, 20, 100, 80); // 檯面
-                    ctx.fillStyle = '#451a03'; ctx.fillRect(25, 25, 90, 70);
-                    // 湯鍋
-                    ctx.fillStyle = '#b45309'; ctx.beginPath(); ctx.arc(50, 60, 20, 0, Math.PI*2); ctx.fill();
-                    ctx.fillStyle = '#f59e0b'; ctx.beginPath(); ctx.arc(50, 60, 15, 0, Math.PI*2); ctx.fill();
-                    ctx.fillStyle = '#fff'; ctx.font = '12px sans-serif'; ctx.fillText('♨️ 秘製老滷', 30, 42);
+                    // 2. 廚房區：黑白切與老滷檯 (左上)
+                    ctx.fillStyle = '#78350f'; ctx.fillRect(20, 20, 100, 75);
+                    ctx.fillStyle = '#451a03'; ctx.fillRect(25, 25, 90, 65);
+                    ctx.fillStyle = '#b45309'; ctx.beginPath(); ctx.arc(50, 58, 18, 0, Math.PI*2); ctx.fill();
+                    ctx.fillStyle = '#f59e0b'; ctx.beginPath(); ctx.arc(50, 58, 13, 0, Math.PI*2); ctx.fill();
+                    ctx.fillStyle = '#fff'; ctx.font = '11px sans-serif'; ctx.fillText('♨️ 鴨爸爸老滷', 30, 38);
 
-                    // 3. 顧客點餐區 (右上)
-                    ctx.fillStyle = '#1e3a8a'; ctx.fillRect(220, 20, 100, 80);
-                    ctx.fillStyle = '#1e293b'; ctx.fillRect(225, 25, 90, 70);
-                    ctx.fillText('🧍 顧客檯', 240, 42);
-                    ctx.fillText('🎓 哈瑪星客', 235, 70);
+                    // 3. 顧客檯 (右上)
+                    ctx.fillStyle = '#1e3a8a'; ctx.fillRect(220, 20, 100, 75);
+                    ctx.fillStyle = '#1e293b'; ctx.fillRect(225, 25, 90, 65);
+                    ctx.fillText('🧍 門市櫃檯', 240, 38);
+                    ctx.fillText('👵 老街坊 / 學生', 230, 65);
 
-                    // 4. 玩家小人平滑移動計算
+                    // 4. 平滑移動
                     const dx = targetX - playerX;
                     const dy = targetY - playerY;
                     const dist = Math.sqrt(dx * dx + dy * dy);
@@ -124,58 +150,51 @@
                         walkCycle += 0.2;
                     }
 
-                    // 區域觸發感應
+                    // 區域感應
                     const now = Date.now();
                     if (now - lastTime > 400) {
                         lastTime = now;
-
-                        // 取餐 (靠近左上滷味檯)
-                        if (Math.hypot(playerX - 70, playerY - 60) < 55) {
+                        // 取餐
+                        if (Math.hypot(playerX - 70, playerY - 58) < 55) {
                             if (carriedFood < maxCarry) carriedFood++;
                         }
-                        // 送餐 (靠近右上顧客檯)
-                        if (Math.hypot(playerX - 270, playerY - 60) < 55) {
+                        // 出餐
+                        if (Math.hypot(playerX - 270, playerY - 58) < 55) {
                             if (carriedFood > 0) {
                                 carriedFood--;
-                                setMoney(m => m + 40);
-                                setTotalRevenue(r => r + 40);
+                                setMoney(m => m + 45);
+                                setTotalRevenue(r => r + 45);
                             }
                         }
                     }
 
-                    // 5. 繪製卡通鴨爸爸小人 (繪本風)
+                    // 5. 卡通鴨爸爸小人繪製
                     ctx.save();
                     ctx.translate(playerX, playerY);
 
-                    // 腳步擺動
                     const legOffset = Math.sin(walkCycle) * 4;
                     ctx.fillStyle = '#f97316';
                     ctx.fillRect(-8, 12 + legOffset, 5, 8);
                     ctx.fillRect(3, 12 - legOffset, 5, 8);
 
-                    // 身體 (圍裙)
-                    ctx.fillStyle = '#dc2626';
+                    ctx.fillStyle = '#dc2626'; // 圍裙
                     ctx.beginPath(); ctx.arc(0, 4, 14, 0, Math.PI*2); ctx.fill();
 
-                    // 頭部 (鴨鴨頭)
-                    ctx.fillStyle = '#facc15';
+                    ctx.fillStyle = '#facc15'; // 鴨頭
                     ctx.beginPath(); ctx.arc(0, -10, 12, 0, Math.PI*2); ctx.fill();
 
-                    // 大眼睛
-                    ctx.fillStyle = '#000';
+                    ctx.fillStyle = '#000'; // 眼睛
                     ctx.beginPath(); ctx.arc(-4, -13, 2.5, 0, Math.PI*2); ctx.fill();
                     ctx.beginPath(); ctx.arc(4, -13, 2.5, 0, Math.PI*2); ctx.fill();
 
-                    // 鴨嘴巴
-                    ctx.fillStyle = '#f97316';
+                    ctx.fillStyle = '#f97316'; // 嘴巴
                     ctx.beginPath(); ctx.ellipse(0, -7, 6, 3, 0, 0, Math.PI*2); ctx.fill();
 
-                    // 白色廚師帽
-                    ctx.fillStyle = '#ffffff';
+                    ctx.fillStyle = '#ffffff'; // 廚師帽
                     ctx.beginPath(); ctx.arc(0, -22, 10, 0, Math.PI*2); ctx.fill();
                     ctx.fillRect(-8, -20, 16, 5);
 
-                    // 頭頂堆疊餐點
+                    // 頭頂餐盤堆疊
                     if (carriedFood > 0) {
                         for (let i = 0; i < carriedFood; i++) {
                             ctx.fillStyle = '#78350f';
@@ -199,7 +218,6 @@
                 };
             }, [currentTab]);
 
-            // 升級門市
             const upgradeShop = () => {
                 const cost = shopLevel * 350;
                 if (money < cost) {
@@ -208,43 +226,7 @@
                 }
                 setMoney(m => m - cost);
                 setShopLevel(l => l + 1);
-                alert(`🎊 門市順利升級至 LV.${shopLevel + 1}！解鎖更多實體商品免費兌換！`);
-            };
-
-            // 購物車邏輯
-            const addToCart = (item) => {
-                setCart(prev => {
-                    const currentQty = prev[item.id] ? prev[item.id].qty : 0;
-                    return { ...prev, [item.id]: { ...item, qty: currentQty + 1 } };
-                });
-                alert(`🛒 已將【${item.name}】加入購物車！`);
-            };
-
-            const updateCartQty = (id, delta) => {
-                setCart(prev => {
-                    const existing = prev[id];
-                    if (!existing) return prev;
-                    const newQty = existing.qty + delta;
-                    if (newQty <= 0) {
-                        const copy = { ...prev };
-                        delete copy[id];
-                        return copy;
-                    }
-                    return { ...prev, [id]: { ...existing, qty: newQty } };
-                });
-            };
-
-            const cartList = Object.values(cart);
-            const cartTotal = cartList.reduce((sum, item) => sum + item.price * item.qty, 0);
-            const cartTotalCount = cartList.reduce((sum, item) => sum + item.qty, 0);
-
-            const handleCheckout = () => {
-                if (cartList.length === 0) return;
-                const orderText = cartList.map(i => `• ${i.name} x${i.qty} ($${i.price * i.qty})`).join('\n');
-                const fullMsg = `你好！我想預購集町真空滷味：\n${orderText}\n\n預購總金額：$${cartTotal}\n取貨地點：高雄濱海一路門市`;
-                window.open(`https://line.me/R/msg/text/?${encodeURIComponent(fullMsg)}`, '_blank');
-                setCart({});
-                setShowCartModal(false);
+                alert(`🎊 門市順利升級至 LV.${shopLevel + 1}！知名度大增！`);
             };
 
             const resetGameData = () => {
@@ -254,10 +236,13 @@
                     setTotalRevenue(150);
                     setRep(10);
                     setShopLevel(1);
-                    setCart({});
                     alert('遊戲存檔已重置！');
                 }
             };
+
+            const filteredMenu = selectedCategory === 'all' 
+                ? MENU_ITEMS 
+                : MENU_ITEMS.filter(item => item.cat === selectedCategory);
 
             return (
                 <div className="max-w-md mx-auto h-screen flex flex-col bg-stone-950 text-stone-100 select-none relative">
@@ -267,11 +252,11 @@
                         <div>
                             <div className="text-[10px] text-amber-400 font-bold tracking-widest flex items-center gap-1">
                                 <span>鴨爸爸滷味</span>
-                                <span className="text-amber-600">x</span>
-                                <span>集町團購</span>
+                                <span className="text-amber-600">·</span>
+                                <span>濱海一路門市</span>
                             </div>
                             <div className="text-base font-black text-amber-300">
-                                🏠 LV.{shopLevel} {shopLevel === 1 ? '古早味麵攤' : shopLevel === 2 ? '排隊名店' : '旗艦總店'}
+                                🏠 LV.{shopLevel} {shopLevel === 1 ? '古早味麵攤' : shopLevel === 2 ? '排隊名店' : '濱海旗艦總店'}
                             </div>
                         </div>
                         <div className="text-right">
@@ -281,15 +266,15 @@
                         </div>
                     </div>
 
-                    {/* 卡通 2D Arcade Idle 動態遊戲畫面 */}
+                    {/* Arcade 操控遊戲主畫面 */}
                     {currentTab === 'arcade' && (
                         <div className="flex-1 p-3 flex flex-col justify-between overflow-hidden">
                             <div className="text-center text-xs text-stone-400 mb-1">
-                                👆 點擊/拖曳畫面操控鴨爸爸：至「秘製老滷」取餐 ➔ 送給「顧客」
+                                👆 點擊/拖曳畫面操控鴨爸爸：至「老滷檯」取餐 ➔ 送給「門市顧客」
                             </div>
 
                             <div id="canvas-container">
-                                <canvas ref={canvasRef} width="340" height="350"></canvas>
+                                <canvas ref={canvasRef} width="340" height="320"></canvas>
                             </div>
 
                             <div className="space-y-2 mt-2">
@@ -307,39 +292,40 @@
                         </div>
                     )}
 
-                    {/* 集町預購與購物車區 */}
-                    {currentTab === 'o2o' && (
-                        <div className="flex-1 p-4 overflow-y-auto space-y-4">
-                            <div className="flex justify-between items-center bg-stone-900 p-3 rounded-xl border border-stone-800">
-                                <span className="font-bold text-amber-400 text-xs">📦 集町真空滷味預購區</span>
-                                <button 
-                                    onClick={() => setShowCartModal(true)}
-                                    className="bg-amber-500 hover:bg-amber-400 text-stone-950 px-3 py-1.5 rounded-lg text-xs font-bold flex items-center gap-1 active:scale-95 shadow"
-                                >
-                                    <span>🛒 購物車</span>
-                                    {cartTotalCount > 0 && (
-                                        <span className="bg-red-600 text-white text-[10px] px-1.5 py-0.5 rounded-full font-black ml-1">
-                                            {cartTotalCount}
-                                        </span>
-                                    )}
-                                </button>
+                    {/* 門市現場美味菜單 */}
+                    {currentTab === 'menu' && (
+                        <div className="flex-1 p-4 overflow-y-auto space-y-3">
+                            <div className="flex gap-1.5 overflow-x-auto pb-1 text-xs">
+                                {[
+                                    { id: 'all', name: '全部美味' },
+                                    { id: 'luwei', name: '招牌黑白切' },
+                                    { id: 'noodle', name: '古早味麵食' },
+                                    { id: 'soup', name: '暖心湯品' },
+                                    { id: 'special', name: '隱藏菜色' }
+                                ].map(cat => (
+                                    <button 
+                                        key={cat.id}
+                                        onClick={() => setSelectedCategory(cat.id)}
+                                        className={`px-3 py-1.5 rounded-lg shrink-0 font-bold ${
+                                            selectedCategory === cat.id 
+                                                ? 'bg-amber-500 text-stone-950' 
+                                                : 'bg-stone-900 text-stone-400 border border-stone-800'
+                                        }`}
+                                    >
+                                        {cat.name}
+                                    </button>
+                                ))}
                             </div>
 
-                            <div className="space-y-2">
-                                {PREORDER_ITEMS.map((item) => (
-                                    <div key={item.id} className="bg-stone-900 p-3 rounded-xl border border-stone-800 flex justify-between items-center">
-                                        <div>
-                                            <div className="font-bold text-xs text-stone-200">{item.name}</div>
-                                            <div className="text-[10px] text-stone-500">{item.desc}</div>
-                                        </div>
-                                        <div className="text-right">
-                                            <div className="text-amber-400 font-bold text-xs mb-1">${item.price}</div>
-                                            <button 
-                                                onClick={() => addToCart(item)}
-                                                className="text-[10px] bg-amber-500 text-stone-950 font-bold px-2.5 py-1 rounded hover:bg-amber-400 active:scale-95 shadow"
-                                            >
-                                                +加購物車
-                                            </button>
+                            <div className="grid grid-cols-2 gap-2.5">
+                                {filteredMenu.map(item => (
+                                    <div key={item.id} className="bg-stone-900 p-3 rounded-xl border border-stone-800 flex items-center justify-between">
+                                        <div className="flex items-center gap-2">
+                                            <span className="text-2xl">{item.icon}</span>
+                                            <div>
+                                                <div className="font-bold text-xs text-stone-200">{item.name}</div>
+                                                <div className="text-[10px] text-amber-400 font-bold">${item.price}</div>
+                                            </div>
                                         </div>
                                     </div>
                                 ))}
@@ -347,12 +333,12 @@
                         </div>
                     )}
 
-                    {/* 實體禮品兌換區 */}
+                    {/* 現場實體禮品兌換區 */}
                     {currentTab === 'reward' && (
                         <div className="flex-1 p-4 overflow-y-auto space-y-3">
                             <div className="bg-stone-900 p-3 rounded-xl border border-amber-500/60">
-                                <h3 className="font-bold text-amber-300 text-xs">🎁 免看廣告！玩遊戲直接換實體好禮</h3>
-                                <p className="text-[10px] text-stone-400">操控鴨爸爸做菜累積總營業額，免費兌換衛生紙、現切滷味與團購折價券！</p>
+                                <h3 className="font-bold text-amber-300 text-xs">🎁 免看廣告！玩遊戲直接現場換好禮</h3>
+                                <p className="text-[10px] text-stone-400">做菜累積總營業額，憑券至高雄濱海一路門市免費領取抽取式衛生紙或招待現切滷味！</p>
                             </div>
 
                             <div className="space-y-2.5">
@@ -391,60 +377,11 @@
                                                         : 'bg-stone-800 text-stone-500'
                                                 }`}
                                             >
-                                                {canClaim ? '兌換獎勵' : '未達門檻'}
+                                                {canClaim ? '現場兌換' : '未達門檻'}
                                             </button>
                                         </div>
                                     );
                                 })}
-                            </div>
-                        </div>
-                    )}
-
-                    {/* 購物車 Modal */}
-                    {showCartModal && (
-                        <div className="absolute inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-                            <div className="bg-stone-900 border border-amber-600/80 p-5 rounded-2xl w-full max-w-xs space-y-4 shadow-2xl">
-                                <div className="flex justify-between items-center border-b border-stone-800 pb-2">
-                                    <h3 className="text-base font-bold text-amber-300">🛒 集町預購購物車</h3>
-                                    <button onClick={() => setShowCartModal(false)} className="text-stone-500 text-xs font-bold px-2 py-1">✕</button>
-                                </div>
-
-                                {cartList.length === 0 ? (
-                                    <div className="text-center py-8 text-stone-500 text-xs">購物車目前是空的！</div>
-                                ) : (
-                                    <div className="space-y-3 max-h-56 overflow-y-auto">
-                                        {cartList.map(item => (
-                                            <div key={item.id} className="flex justify-between items-center bg-stone-950 p-2.5 rounded-xl border border-stone-800">
-                                                <div>
-                                                    <div className="font-bold text-xs text-stone-200">{item.name}</div>
-                                                    <div className="text-[10px] text-amber-400">${item.price * item.qty}</div>
-                                                </div>
-                                                <div className="flex items-center gap-2 bg-stone-900 px-2 py-1 rounded border border-stone-700">
-                                                    <button onClick={() => updateCartQty(item.id, -1)} className="text-amber-400 font-bold text-xs px-1.5 py-0.5">-</button>
-                                                    <span className="text-xs font-bold text-stone-200">{item.qty}</span>
-                                                    <button onClick={() => updateCartQty(item.id, 1)} className="text-amber-400 font-bold text-xs px-1.5 py-0.5">+</button>
-                                                </div>
-                                            </div>
-                                        ))}
-                                    </div>
-                                )}
-
-                                {cartList.length > 0 && (
-                                    <div className="border-t border-stone-800 pt-3 space-y-3">
-                                        <div className="flex justify-between items-center font-bold text-sm">
-                                            <span className="text-stone-300">預購總金額：</span>
-                                            <span className="text-amber-400 text-base">${cartTotal}</span>
-                                        </div>
-                                        <button 
-                                            onClick={handleCheckout}
-                                            className="w-full bg-emerald-600 hover:bg-emerald-500 text-white font-bold py-2.5 rounded-xl text-xs active:scale-95 shadow flex items-center justify-center gap-1"
-                                        >
-                                            <span>🟢</span> 送出預購訂單至 LINE
-                                        </button>
-                                    </div>
-                                )}
-
-                                <button onClick={() => setShowCartModal(false)} className="text-xs text-stone-500 underline block mx-auto pt-1">關閉</button>
                             </div>
                         </div>
                     )}
@@ -458,13 +395,13 @@
                                 <p className="text-xs text-stone-300 leading-relaxed">{activeCoupon.desc}</p>
                                 
                                 <div className="bg-stone-950 p-3 rounded-xl border border-dashed border-amber-500/50">
-                                    <div className="text-[10px] text-stone-400 mb-1">現場 / LINE 實體核銷碼</div>
+                                    <div className="text-[10px] text-stone-400 mb-1">濱海一路門市現場核銷碼</div>
                                     <div className="text-xl font-black tracking-widest text-amber-400">{activeCoupon.code}</div>
                                 </div>
 
                                 <button 
                                     onClick={() => {
-                                        const msg = `你好！我在《鴨爸爸滷味大亨》兌換了【${activeCoupon.title}】，核銷碼是：${activeCoupon.code}`;
+                                        const msg = `你好！我在《鴨爸爸滷味大亨》兌換了【${activeCoupon.title}】，現場核銷碼是：${activeCoupon.code}`;
                                         window.open(`https://line.me/R/msg/text/?${encodeURIComponent(msg)}`, '_blank');
                                         setActiveCoupon(null);
                                     }} 
@@ -480,9 +417,9 @@
 
                     {/* 底部導覽選單 */}
                     <div className="bg-stone-900 border-t border-amber-900/60 flex text-stone-400 text-xs">
-                        <button onClick={() => setCurrentTab('arcade')} className={`flex-1 py-3.5 text-center font-bold ${currentTab === 'arcade' ? 'tab-active' : ''}`}>🎮 鴨爸爸模擬門市</button>
-                        <button onClick={() => setCurrentTab('o2o')} className={`flex-1 py-3.5 text-center font-bold ${currentTab === 'o2o' ? 'tab-active' : ''}`}>📦 集町預購</button>
-                        <button onClick={() => setCurrentTab('reward')} className={`flex-1 py-3.5 text-center font-bold ${currentTab === 'reward' ? 'tab-active' : ''}`}>🎁 實體禮品兌換</button>
+                        <button onClick={() => setCurrentTab('arcade')} className={`flex-1 py-3.5 text-center font-bold ${currentTab === 'arcade' ? 'tab-active' : ''}`}>🎮 鴨爸爸門市</button>
+                        <button onClick={() => setCurrentTab('menu')} className={`flex-1 py-3.5 text-center font-bold ${currentTab === 'menu' ? 'tab-active' : ''}`}>🍜 現場菜單</button>
+                        <button onClick={() => setCurrentTab('reward')} className={`flex-1 py-3.5 text-center font-bold ${currentTab === 'reward' ? 'tab-active' : ''}`}>🎁 現場好禮兌換</button>
                     </div>
                 </div>
             );
