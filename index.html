@@ -31,15 +31,15 @@
         ];
 
         const CUSTOMER_TYPES = [
-            { name: '西子灣學生', avatar: '🎓', patience: 18 },
-            { name: '哈瑪星美食客', avatar: '🛵', patience: 15 },
-            { name: '濱海一路老街坊', avatar: '👵', patience: 20 },
+            { name: '西子灣學生', avatar: '🎓', patience: 14 },
+            { name: '哈瑪星美食客', avatar: '🛵', patience: 12 },
+            { name: '濱海一路老街坊', avatar: '👵', patience: 16 },
         ];
 
         function App() {
             const [money, setMoney] = useState(() => Number(localStorage.getItem('duck_money') || 150));
             const [totalRevenue, setTotalRevenue] = useState(() => Number(localStorage.getItem('duck_revenue') || 150));
-            const [rep, setRep] = useState(() => Number(localStorage.getItem('duck_rep') || 10));
+            const [rep, setRep] = useState(() => Number(localStorage.getItem('duck_rep') || 5));
             const [shopLevel, setShopLevel] = useState(() => Number(localStorage.getItem('duck_level') || 1));
 
             useEffect(() => { localStorage.setItem('duck_money', money); }, [money]);
@@ -101,7 +101,6 @@
                 setPlayerPos('counter');
                 setTimeout(() => {
                     if (carriedItem && currentCustomer) {
-                        // 精準比對 ID 或名稱
                         if (carriedItem.id === currentCustomer.order.id || carriedItem.name === currentCustomer.order.name) {
                             const earn = carriedItem.price;
                             setMoney(m => m + earn);
@@ -110,9 +109,10 @@
                             setCarriedItem(null);
                             setCurrentCustomer(null);
                             setPlayerPos('center');
-                            alert(`🎉 成功送餐【${carriedItem.name}】！賺取 $${earn} 營業金，好評度 +1！`);
+                            alert(`🎉 成功送餐【${carriedItem.name}】！賺取 $${earn} 營業金，⭐ 好評度 +1！`);
                         } else {
-                            alert(`❌ 送錯菜了！小人手上端的是【${carriedItem.name}】，但客人想吃的是【${currentCustomer.order.name}】！`);
+                            setRep(r => Math.max(0, r - 1));
+                            alert(`❌ 送錯菜了！客人想吃的是【${currentCustomer.order.name}】！⭐ 好評度 -1！`);
                         }
                     } else if (!carriedItem) {
                         alert('手上沒有菜喔！請先點擊菜色做菜，再點擊「廚房備餐檯」取餐！');
@@ -120,15 +120,33 @@
                 }, 400);
             };
 
+            // 升級門市：好評度門檻機制
+            const getUpgradeReq = () => {
+                if (shopLevel === 1) return { reqRep: 20, reqMoney: 500, title: 'LV.2 排隊名店' };
+                if (shopLevel === 2) return { reqRep: 50, reqMoney: 1200, title: 'LV.3 濱海旗艦總店' };
+                return null;
+            };
+
             const upgradeShop = () => {
-                const cost = shopLevel * 350;
-                if (money < cost) {
-                    alert(`資金不足！擴大門市需要 $${cost}`);
+                const req = getUpgradeReq();
+                if (!req) {
+                    alert('門市已達最高等級！');
                     return;
                 }
-                setMoney(m => m - cost);
+
+                if (rep < req.reqRep) {
+                    alert(`升級條件不足！需要 ⭐ 好評度達到 ${req.reqRep} 星（目前 ${rep} 星）！請多服務顧客並做出正確餐點！`);
+                    return;
+                }
+
+                if (money < req.reqMoney) {
+                    alert(`營業金不足！升級至 ${req.title} 需要 $${req.reqMoney}（目前 $${money}）！`);
+                    return;
+                }
+
+                setMoney(m => m - req.reqMoney);
                 setShopLevel(l => l + 1);
-                alert(`🎊 門市順利升級至 LV.${shopLevel + 1}！`);
+                alert(`🎊 恭喜！鴨爸爸門市順利升級至 ${req.title}！聲譽遠播！`);
             };
 
             const resetGameData = () => {
@@ -136,7 +154,7 @@
                     localStorage.clear();
                     setMoney(150);
                     setTotalRevenue(150);
-                    setRep(10);
+                    setRep(5);
                     setShopLevel(1);
                     alert('遊戲存檔已重置！');
                 }
@@ -146,7 +164,7 @@
                 ? 'https://boden0323-cyber.github.io/duck-father/' 
                 : window.location.href;
 
-            const shareText = `鴨爸爸濱海一路門市《滷味大亨》試營運中！快來玩遊戲免費換抽取式衛生紙與現切滷味！ ${gameUrl}`;
+            const shareText = `鴨爸爸濱海一路門市《滷味大亨》試營運中！快來玩遊戲提升好評度，免費換抽取式衛生紙與現切滷味！ ${gameUrl}`;
 
             const handleLineShare = () => {
                 window.open(`https://line.me/R/msg/text/?${encodeURIComponent(shareText)}`, '_blank');
@@ -158,10 +176,12 @@
             };
 
             const TASKS = [
-                { id: 't1', title: '【初露鋒芒】累積總營業額達 $500', reward: '現場消費免費招待「香滷蛋」乙顆', code: 'EGG-FREE', isDone: totalRevenue >= 500 },
-                { id: 't2', title: '【熟能生巧】⭐ 好評度達到 15 星', reward: '現場消費滿 $200 折 $30 券', code: 'DUCK-30', isDone: rep >= 15 },
-                { id: 't3', title: '【濱海一路店長】累積總營業額達 $1500', reward: '【集町團購】抽取式衛生紙 1 包免費領', code: 'TISSUE-FREE', isDone: totalRevenue >= 1500 },
+                { id: 't1', title: '【初露鋒芒】⭐ 好評度達到 10 星', reward: '現場消費免費招待「香滷蛋」乙顆', code: 'EGG-FREE', isDone: rep >= 10 },
+                { id: 't2', title: '【熟能生巧】⭐ 好評度達到 25 星', reward: '現場消費滿 $200 折 $30 券', code: 'DUCK-30', isDone: rep >= 25 },
+                { id: 't3', title: '【濱海店長】⭐ 好評度達到 50 星', reward: '【集町團購】抽取式衛生紙 1 包免費領', code: 'TISSUE-FREE', isDone: rep >= 50 },
             ];
+
+            const upgradeInfo = getUpgradeReq();
 
             return (
                 <div className="max-w-md mx-auto h-screen flex flex-col bg-stone-950 text-stone-100 select-none relative">
@@ -178,7 +198,7 @@
                             <div>
                                 <div className="text-amber-400 font-black text-xs">可用資金: ${money}</div>
                                 <div className="text-amber-200/90 font-bold text-[10px]">總營業額: ${totalRevenue}</div>
-                                <div className="text-[10px] text-yellow-400 font-bold">⭐ 好評度 {rep}</div>
+                                <div className="text-[10px] text-yellow-400 font-black">⭐ 好評度 {rep} 星</div>
                             </div>
                             <button onClick={() => setShowShareModal(true)} className="bg-emerald-600 hover:bg-emerald-500 text-white p-2 rounded-xl text-xs font-bold shadow flex flex-col items-center active:scale-95">
                                 <span>🟢</span>
@@ -198,7 +218,7 @@
                                         className="bg-amber-950/90 border-2 border-amber-600 p-2.5 rounded-xl text-left hover:scale-105 active:scale-95 transition-all shadow-lg"
                                     >
                                         <div className="text-xs font-bold text-amber-300">
-                                            <span>♨️ 廚房備餐檯</span>
+                                            <span>♨️️ 廚房備餐檯</span>
                                         </div>
                                         <div className="text-[10px] text-stone-300 mt-1">
                                             {cookingItem ? `已做好: ${cookingItem.icon}${cookingItem.name}` : '無待端餐點'}
@@ -280,7 +300,12 @@
                             </div>
 
                             <div className="flex justify-between items-center text-[10px] text-stone-500 px-1">
-                                <button onClick={upgradeShop} className="bg-amber-500 hover:bg-amber-400 text-stone-950 font-black px-3 py-1.5 rounded-lg text-xs active:scale-95 shadow">🚀 門市升級 (${shopLevel * 350})</button>
+                                <button 
+                                    onClick={upgradeShop} 
+                                    className="bg-amber-500 hover:bg-amber-400 text-stone-950 font-black px-3 py-1.5 rounded-lg text-xs active:scale-95 shadow"
+                                >
+                                    🚀 升級門市 {upgradeInfo ? `(需 ⭐${upgradeInfo.reqRep}星 + $${upgradeInfo.reqMoney})` : '(最高等級)'}
+                                </button>
                                 <button onClick={resetGameData} className="underline text-stone-600 hover:text-stone-400">重置存檔</button>
                             </div>
                         </div>
@@ -290,8 +315,8 @@
                     {currentTab === 'tasks' && (
                         <div className="flex-1 p-4 overflow-y-auto space-y-3">
                             <div className="bg-stone-900 p-3.5 rounded-xl border border-amber-500/60 shadow-lg">
-                                <h3 className="font-bold text-amber-300 text-xs mb-1">📜 店長成就任務 · 現場免費領衛生紙與好禮</h3>
-                                <p className="text-[10px] text-stone-400">做菜送餐提升好評度與累積營業額，達成任務即可現場免費領取抽取式衛生紙！</p>
+                                <h3 className="font-bold text-amber-300 text-xs mb-1">📜 好評度成就任務 · 免費換衛生紙與招待菜</h3>
+                                <p className="text-[10px] text-stone-400">做對餐點送給客人累積 ⭐ 好評度，好評度達到門檻即可免費兌換實體衛生紙！</p>
                             </div>
 
                             <div className="space-y-2.5">
@@ -304,7 +329,7 @@
                                         <button 
                                             onClick={() => {
                                                 if (!task.isDone) {
-                                                    alert('任務尚未完成！請繼續出餐提升好評度與營業額！');
+                                                    alert('好評度未達門檻！請繼續服務顧客、做出正確餐點！');
                                                     return;
                                                 }
                                                 setActiveCoupon({
@@ -380,7 +405,7 @@
                     {/* 底部導覽選單 */}
                     <div className="bg-stone-900 border-t border-amber-900/60 flex text-stone-400 text-xs">
                         <button onClick={() => setCurrentTab('arcade')} className={`flex-1 py-3.5 text-center font-bold ${currentTab === 'arcade' ? 'tab-active' : ''}`}>🎮 門市出餐經營</button>
-                        <button onClick={() => setCurrentTab('tasks')} className={`flex-1 py-3.5 text-center font-bold ${currentTab === 'tasks' ? 'tab-active' : ''}`}>📜 成就任務與衛生紙</button>
+                        <button onClick={() => setCurrentTab('tasks')} className={`flex-1 py-3.5 text-center font-bold ${currentTab === 'tasks' ? 'tab-active' : ''}`}>📜 好評成就與衛生紙</button>
                         <button onClick={() => setShowShareModal(true)} className="flex-1 py-3.5 text-center font-bold text-emerald-400">📲 分享好友</button>
                     </div>
                 </div>
