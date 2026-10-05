@@ -120,7 +120,6 @@
                 }, 400);
             };
 
-            // 升級門市：好評度門檻機制
             const getUpgradeReq = () => {
                 if (shopLevel === 1) return { reqRep: 20, reqMoney: 500, title: 'LV.2 排隊名店' };
                 if (shopLevel === 2) return { reqRep: 50, reqMoney: 1200, title: 'LV.3 濱海旗艦總店' };
@@ -164,7 +163,7 @@
                 ? 'https://boden0323-cyber.github.io/duck-father/' 
                 : window.location.href;
 
-            const shareText = `鴨爸爸濱海一路門市《滷味大亨》試營運中！快來玩遊戲提升好評度，免費換抽取式衛生紙與現切滷味！ ${gameUrl}`;
+            const shareText = `鴨爸爸濱海一路門市《滷味大亨》試營運中！快來玩遊戲提升好評度，免費換抽取式衛生紙與招待現切小菜！ ${gameUrl}`;
 
             const handleLineShare = () => {
                 window.open(`https://line.me/R/msg/text/?${encodeURIComponent(shareText)}`, '_blank');
@@ -175,9 +174,10 @@
                 alert('📋 遊戲網址已複製！快發給 LINE 好友或社群群組！');
             };
 
+            // 安全不虧本的優惠任務設計
             const TASKS = [
-                { id: 't1', title: '【初露鋒芒】⭐ 好評度達到 10 星', reward: '現場消費免費招待「香滷蛋」乙顆', code: 'EGG-FREE', isDone: rep >= 10 },
-                { id: 't2', title: '【熟能生巧】⭐ 好評度達到 25 星', reward: '現場消費滿 $200 折 $30 券', code: 'DUCK-30', isDone: rep >= 25 },
+                { id: 't1', title: '【初露鋒芒】⭐ 好評度達到 10 星', reward: '現場滿 $100 免費招待「香滷蛋」乙顆', code: 'EGG-FREE', isDone: rep >= 10 },
+                { id: 't2', title: '【熟能生巧】⭐ 好評度達到 25 星', reward: '現場滿 $180 免費招待「豆干+滷蛋」小菜雙拼', code: 'SIDE-FREE', isDone: rep >= 25 },
                 { id: 't3', title: '【濱海店長】⭐ 好評度達到 50 星', reward: '【集町團購】抽取式衛生紙 1 包免費領', code: 'TISSUE-FREE', isDone: rep >= 50 },
             ];
 
@@ -218,7 +218,7 @@
                                         className="bg-amber-950/90 border-2 border-amber-600 p-2.5 rounded-xl text-left hover:scale-105 active:scale-95 transition-all shadow-lg"
                                     >
                                         <div className="text-xs font-bold text-amber-300">
-                                            <span>♨️️ 廚房備餐檯</span>
+                                            <span>♨️ 廚房備餐檯</span>
                                         </div>
                                         <div className="text-[10px] text-stone-300 mt-1">
                                             {cookingItem ? `已做好: ${cookingItem.icon}${cookingItem.name}` : '無待端餐點'}
@@ -273,7 +273,6 @@
                                 </div>
                             </div>
 
-                            {/* 做菜點餐按鈕區 */}
                             <div className="bg-stone-900 p-3 rounded-2xl border border-stone-800 space-y-2">
                                 <div className="text-[10px] text-amber-400 font-bold flex justify-between items-center">
                                     <span>👨‍🍳 選擇菜色做餐：</span>
@@ -315,8 +314,8 @@
                     {currentTab === 'tasks' && (
                         <div className="flex-1 p-4 overflow-y-auto space-y-3">
                             <div className="bg-stone-900 p-3.5 rounded-xl border border-amber-500/60 shadow-lg">
-                                <h3 className="font-bold text-amber-300 text-xs mb-1">📜 好評度成就任務 · 免費換衛生紙與招待菜</h3>
-                                <p className="text-[10px] text-stone-400">做對餐點送給客人累積 ⭐ 好評度，好評度達到門檻即可免費兌換實體衛生紙！</p>
+                                <h3 className="font-bold text-amber-300 text-xs mb-1">📜 好評度成就任務 · 現場免費領衛生紙與小菜</h3>
+                                <p className="text-[10px] text-stone-400">做對餐點送給客人累積 ⭐ 好評度，好評度達到門檻即可免費兌換實體衛生紙與招待小菜！</p>
                             </div>
 
                             <div className="space-y-2.5">
