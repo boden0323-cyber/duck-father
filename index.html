@@ -31,9 +31,9 @@
         ];
 
         const CUSTOMER_TYPES = [
-            { name: '西子灣學生', avatar: '🎓', patience: 15 },
-            { name: '哈瑪星美食客', avatar: '🛵', patience: 12 },
-            { name: '濱海一路老街坊', avatar: '👵', patience: 18 },
+            { name: '西子灣學生', avatar: '🎓', patience: 18 },
+            { name: '哈瑪星美食客', avatar: '🛵', patience: 15 },
+            { name: '濱海一路老街坊', avatar: '👵', patience: 20 },
         ];
 
         function App() {
@@ -94,14 +94,15 @@
                         setCarriedItem(cookingItem);
                         setCookingItem(null);
                     }
-                }, 500);
+                }, 400);
             };
 
             const goToCounter = () => {
                 setPlayerPos('counter');
                 setTimeout(() => {
                     if (carriedItem && currentCustomer) {
-                        if (carriedItem.id === currentCustomer.order.id) {
+                        // 精準比對 ID 或名稱
+                        if (carriedItem.id === currentCustomer.order.id || carriedItem.name === currentCustomer.order.name) {
                             const earn = carriedItem.price;
                             setMoney(m => m + earn);
                             setTotalRevenue(r => r + earn);
@@ -109,12 +110,14 @@
                             setCarriedItem(null);
                             setCurrentCustomer(null);
                             setPlayerPos('center');
-                            alert(`🎉 成功送餐！賺取 $${earn} 營業金，好評度 +1！`);
+                            alert(`🎉 成功送餐【${carriedItem.name}】！賺取 $${earn} 營業金，好評度 +1！`);
                         } else {
-                            alert(`❌ 送錯菜了！客人想吃的是【${currentCustomer.order.name}】！`);
+                            alert(`❌ 送錯菜了！小人手上端的是【${carriedItem.name}】，但客人想吃的是【${currentCustomer.order.name}】！`);
                         }
+                    } else if (!carriedItem) {
+                        alert('手上沒有菜喔！請先點擊菜色做菜，再點擊「廚房備餐檯」取餐！');
                     }
-                }, 500);
+                }, 400);
             };
 
             const upgradeShop = () => {
@@ -184,7 +187,7 @@
                         </div>
                     </div>
 
-                    {/* Arcade 流暢場景 */}
+                    {/* Arcade 主場景 */}
                     {currentTab === 'arcade' && (
                         <div className="flex-1 p-3 flex flex-col justify-between overflow-hidden">
                             
@@ -192,7 +195,7 @@
                                 <div className="flex justify-between items-start z-10">
                                     <button 
                                         onClick={goToKitchen}
-                                        className="bg-amber-950/80 border-2 border-amber-600 p-2.5 rounded-xl text-left hover:scale-105 active:scale-95 transition-all shadow-lg"
+                                        className="bg-amber-950/90 border-2 border-amber-600 p-2.5 rounded-xl text-left hover:scale-105 active:scale-95 transition-all shadow-lg"
                                     >
                                         <div className="text-xs font-bold text-amber-300">
                                             <span>♨️ 廚房備餐檯</span>
@@ -207,13 +210,13 @@
 
                                     <button 
                                         onClick={goToCounter}
-                                        className="bg-blue-950/80 border-2 border-blue-500 p-2.5 rounded-xl text-right hover:scale-105 active:scale-95 transition-all shadow-lg"
+                                        className="bg-blue-950/90 border-2 border-blue-500 p-2.5 rounded-xl text-right hover:scale-105 active:scale-95 transition-all shadow-lg"
                                     >
                                         <div className="text-xs font-bold text-blue-300">
                                             {currentCustomer ? `${currentCustomer.avatar} ${currentCustomer.name}` : '門市櫃檯'}
                                         </div>
                                         <div className="text-[10px] text-amber-300 font-bold mt-1">
-                                            {currentCustomer ? `想吃: ${currentCustomer.order.icon}${currentCustomer.order.name}` : '等候顧客中...'}
+                                            {currentCustomer ? `需求: ${currentCustomer.order.icon}${currentCustomer.order.name}` : '等候顧客中...'}
                                         </div>
                                         {currentCustomer && (
                                             <div className="text-[9px] text-red-400 mt-0.5">⏳ 耐心: {currentCustomer.timeLeft}s</div>
@@ -230,15 +233,15 @@
                                     }`}
                                 >
                                     {carriedItem && (
-                                        <div className="bg-amber-900 border border-amber-500 px-2 py-0.5 rounded-full text-xs animate-bounce mb-1">
-                                            🍱 {carriedItem.icon}
+                                        <div className="bg-amber-900 border border-amber-500 px-2.5 py-1 rounded-full text-xs font-bold animate-bounce mb-1 text-amber-200">
+                                            {carriedItem.icon} {carriedItem.name}
                                         </div>
                                     )}
                                     <div className="relative">
                                         <div className="w-10 h-10 bg-yellow-400 rounded-full border-2 border-amber-600 flex items-center justify-center shadow-lg">
                                             <span className="text-lg">🦆</span>
                                         </div>
-                                        <div className="absolute -top-3 left-1/2 -translate-x-1/2 bg-white text-[8px] font-bold px-1 rounded border border-stone-400">
+                                        <div className="absolute -top-3 left-1/2 -translate-x-1/2 bg-white text-[8px] font-bold px-1 rounded border border-stone-400 text-stone-900">
                                             廚師帽
                                         </div>
                                     </div>
@@ -250,10 +253,13 @@
                                 </div>
                             </div>
 
+                            {/* 做菜點餐按鈕區 */}
                             <div className="bg-stone-900 p-3 rounded-2xl border border-stone-800 space-y-2">
                                 <div className="text-[10px] text-amber-400 font-bold flex justify-between items-center">
                                     <span>👨‍🍳 選擇菜色做餐：</span>
-                                    <span>{currentCustomer ? `需求：${currentCustomer.order.icon}${currentCustomer.order.name}` : '暫無顧客'}</span>
+                                    <span className="text-amber-300 font-bold">
+                                        {currentCustomer ? `顧客需求：${currentCustomer.order.icon}${currentCustomer.order.name}` : '暫無顧客'}
+                                    </span>
                                 </div>
                                 <div className="grid grid-cols-4 gap-1.5">
                                     {MENU_ITEMS.map(item => (
@@ -358,7 +364,7 @@
                                 <p className="text-xs text-stone-400">發送遊戲給好友，邀請大家一起體驗經營樂趣免費換衛生紙！</p>
                                 
                                 <div className="space-y-2">
-                                    <button onClick={handleLineShare} className="w-full bg-emerald-600 text-white font-bold py-2.5 rounded-xl text-xs flex items-center justify-center gap-2 active:scale-95">
+                                    <button onClick={handleLineShare} className="w-full bg-emerald-600 text-white font-bold py-2.5 rounded-xl text-xs active:scale-95 flex items-center justify-center gap-2">
                                         <span>🟢</span> 分享至 LINE 好友 / 群組
                                     </button>
                                     <button onClick={handleCopyLink} className="w-full bg-stone-800 border border-stone-700 text-stone-200 font-bold py-2.5 rounded-xl text-xs active:scale-95">
@@ -371,7 +377,7 @@
                         </div>
                     )}
 
-                    {/* 底部選單 */}
+                    {/* 底部導覽選單 */}
                     <div className="bg-stone-900 border-t border-amber-900/60 flex text-stone-400 text-xs">
                         <button onClick={() => setCurrentTab('arcade')} className={`flex-1 py-3.5 text-center font-bold ${currentTab === 'arcade' ? 'tab-active' : ''}`}>🎮 門市出餐經營</button>
                         <button onClick={() => setCurrentTab('tasks')} className={`flex-1 py-3.5 text-center font-bold ${currentTab === 'tasks' ? 'tab-active' : ''}`}>📜 成就任務與衛生紙</button>
