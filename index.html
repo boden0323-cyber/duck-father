@@ -3,16 +3,15 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>鴨爸爸 x 集町： Arcade Idle 實體兌換滷味大亨</title>
+    <title>鴨爸爸 x 集町： Arcade Idle 卡通滷味大亨</title>
     <script src="https://unpkg.com/react@18/umd/react.development.js"></script>
     <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
     <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/phaser@3.60.0/dist/phaser.min.js"></script>
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
         body { font-family: 'PingFang TC', 'Microsoft JhengHei', sans-serif; background-color: #120e0b; color: #eee; user-select: none; overflow: hidden; -webkit-tap-highlight-color: transparent; }
         .tab-active { border-bottom: 3px solid #f59e0b; color: #fbbf24; font-weight: bold; }
-        #phaser-game-container canvas { display: block; margin: 0 auto; border-radius: 12px; }
+        #canvas-container { position: relative; width: 340px; height: 350px; margin: 0 auto; border-radius: 16px; overflow: hidden; border: 2px solid #78350f; box-shadow: 0 10px 25px rgba(0,0,0,0.5); }
     </style>
 </head>
 <body>
@@ -28,13 +27,13 @@
         ];
 
         const REAL_REWARDS = [
-            { id: 'r_tissue', name: '【集町團購】抽取式衛生紙 1 包', costType: 'revenue', cost: 1500, icon: '🧻', desc: '操控小人出餐累積總營業額 $1500，憑券至濱海一路門市或團購免費領取！', code: 'TISSUE-FREE' },
+            { id: 'r_tissue', name: '【集町團購】抽取式衛生紙 1 包', costType: 'revenue', cost: 1500, icon: '🧻', desc: '操控鴨爸爸切滷味累積總營業額 $1500，憑券至濱海一路門市或團購免費領取！', code: 'TISSUE-FREE' },
             { id: 'r_tofu', name: '【鴨爸爸門市】招牌豆干 乙份', costType: 'revenue', cost: 800, icon: '🧈', desc: '現場消費出示，免費招待現切爆汁招牌豆干！', code: 'TOFU-FREE' },
             { id: 'r_coupon', name: '【集町預購】滿 $300 折 $50 優惠券', costType: 'level', cost: 2, icon: '🎟️', desc: '門市升級至 LV.2 解鎖，全系列真空包/生活用品適用！', code: 'JITING-50' },
         ];
 
         function App() {
-            // 從 localStorage 讀取紀錄（存檔恢復）
+            // 從 localStorage 自動恢復存檔
             const [money, setMoney] = useState(() => Number(localStorage.getItem('duck_money') || 150));
             const [totalRevenue, setTotalRevenue] = useState(() => Number(localStorage.getItem('duck_revenue') || 150));
             const [rep, setRep] = useState(() => Number(localStorage.getItem('duck_rep') || 10));
@@ -53,95 +52,150 @@
             const [cart, setCart] = useState({});
             const [showCartModal, setShowCartModal] = useState(false);
 
-            const phaserRef = useRef(null);
+            const canvasRef = useRef(null);
 
-            // Phaser 3 2D Arcade Idle 模擬器初始化
+            // Canvas 2D Arcade Idle 動態繪繪與操控
             useEffect(() => {
-                if (currentTab !== 'arcade' || phaserRef.current) return;
+                if (currentTab !== 'arcade' || !canvasRef.current) return;
 
+                const canvas = canvasRef.current;
+                const ctx = canvas.getContext('2d');
+
+                let playerX = 170;
+                let playerY = 220;
+                let targetX = 170;
+                let targetY = 220;
                 let carriedFood = 0;
                 const maxCarry = 3;
+                let walkCycle = 0;
 
-                const config = {
-                    type: Phaser.AUTO,
-                    width: 340,
-                    height: 380,
-                    parent: 'phaser-game-container',
-                    physics: { default: 'arcade', arcade: { debug: false } },
-                    scene: {
-                        create: function () {
-                            const scene = this;
-
-                            // 地板繪製
-                            const graphics = scene.add.graphics();
-                            graphics.fillStyle(0x3a2e2b, 1);
-                            graphics.fillRect(10, 10, 320, 360);
-
-                            // 滷味檯
-                            graphics.fillStyle(0x78350f, 1);
-                            graphics.fillRect(25, 30, 90, 70);
-                            scene.add.text(35, 55, '♨️ 滷味檯', { font: '12px Arial', fill: '#fbbf24' });
-
-                            // 顧客檯
-                            graphics.fillStyle(0x1e3a8a, 1);
-                            graphics.fillRect(225, 30, 90, 70);
-                            scene.add.text(235, 55, '🧍 顧客檯', { font: '12px Arial', fill: '#93c5fd' });
-
-                            // 玩家角色 (鴨爸爸)
-                            const player = scene.add.circle(170, 200, 14, 0xf59e0b);
-                            scene.physics.add.existing(player);
-                            player.body.setCollideWorldBounds(true);
-
-                            const foodText = scene.add.text(170, 175, '', { font: '11px Arial', fill: '#ffffff' }).setOrigin(0.5);
-
-                            // 手機滑動 / 觸控移動
-                            scene.input.on('pointermove', (pointer) => {
-                                if (pointer.isDown) {
-                                    scene.physics.moveToObject(player, pointer, 150);
-                                }
-                            });
-                            scene.input.on('pointerup', () => {
-                                player.body.setVelocity(0, 0);
-                            });
-
-                            // 定時偵測位置與出餐
-                            scene.time.addEvent({
-                                delay: 350,
-                                callback: () => {
-                                    foodText.setPosition(player.x, player.y - 20);
-
-                                    // 取餐
-                                    if (Phaser.Math.Distance.Between(player.x, player.y, 70, 65) < 45) {
-                                        if (carriedFood < maxCarry) {
-                                            carriedFood++;
-                                            foodText.setText(`🍱 x${carriedFood}`);
-                                        }
-                                    }
-
-                                    // 送餐賺錢
-                                    if (Phaser.Math.Distance.Between(player.x, player.y, 270, 65) < 45) {
-                                        if (carriedFood > 0) {
-                                            carriedFood--;
-                                            foodText.setText(carriedFood > 0 ? `🍱 x${carriedFood}` : '');
-                                            
-                                            setMoney(m => m + 40);
-                                            setTotalRevenue(r => r + 40);
-                                        }
-                                    }
-                                },
-                                loop: true
-                            });
-                        }
-                    }
+                // 觸控 / 滑動位置控制
+                const handlePointerMove = (e) => {
+                    const rect = canvas.getBoundingClientRect();
+                    const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+                    const clientY = e.touches ? e.touches[0].clientY : e.clientY;
+                    targetX = Math.max(30, Math.min(310, clientX - rect.left));
+                    targetY = Math.max(30, Math.min(320, clientY - rect.top));
                 };
 
-                phaserRef.current = new Phaser.Game(config);
+                canvas.addEventListener('mousemove', handlePointerMove);
+                canvas.addEventListener('touchmove', handlePointerMove);
+
+                let animId = null;
+                let lastTime = Date.now();
+
+                const render = () => {
+                    ctx.clearRect(0, 0, 340, 350);
+
+                    // 1. 繪製精細門市地板
+                    ctx.fillStyle = '#2d2420';
+                    ctx.fillRect(0, 0, 340, 350);
+
+                    // 木紋磚地毯
+                    ctx.strokeStyle = '#3e312c';
+                    ctx.lineWidth = 1;
+                    for (let i = 0; i < 340; i += 40) {
+                        ctx.beginPath(); ctx.moveTo(i, 0); ctx.lineTo(i, 350); ctx.stroke();
+                        ctx.beginPath(); ctx.moveTo(0, i); ctx.lineTo(340, i); ctx.stroke();
+                    }
+
+                    // 2. 廚房區：滷味檯 (左上)
+                    ctx.fillStyle = '#78350f'; ctx.fillRect(20, 20, 100, 80); // 檯面
+                    ctx.fillStyle = '#451a03'; ctx.fillRect(25, 25, 90, 70);
+                    // 湯鍋
+                    ctx.fillStyle = '#b45309'; ctx.beginPath(); ctx.arc(50, 60, 20, 0, Math.PI*2); ctx.fill();
+                    ctx.fillStyle = '#f59e0b'; ctx.beginPath(); ctx.arc(50, 60, 15, 0, Math.PI*2); ctx.fill();
+                    ctx.fillStyle = '#fff'; ctx.font = '12px sans-serif'; ctx.fillText('♨️ 秘製老滷', 30, 42);
+
+                    // 3. 顧客點餐區 (右上)
+                    ctx.fillStyle = '#1e3a8a'; ctx.fillRect(220, 20, 100, 80);
+                    ctx.fillStyle = '#1e293b'; ctx.fillRect(225, 25, 90, 70);
+                    ctx.fillText('🧍 顧客檯', 240, 42);
+                    ctx.fillText('🎓 哈瑪星客', 235, 70);
+
+                    // 4. 玩家小人平滑移動計算
+                    const dx = targetX - playerX;
+                    const dy = targetY - playerY;
+                    const dist = Math.sqrt(dx * dx + dy * dy);
+
+                    if (dist > 3) {
+                        playerX += (dx / dist) * 2.8;
+                        playerY += (dy / dist) * 2.8;
+                        walkCycle += 0.2;
+                    }
+
+                    // 區域觸發感應
+                    const now = Date.now();
+                    if (now - lastTime > 400) {
+                        lastTime = now;
+
+                        // 取餐 (靠近左上滷味檯)
+                        if (Math.hypot(playerX - 70, playerY - 60) < 55) {
+                            if (carriedFood < maxCarry) carriedFood++;
+                        }
+                        // 送餐 (靠近右上顧客檯)
+                        if (Math.hypot(playerX - 270, playerY - 60) < 55) {
+                            if (carriedFood > 0) {
+                                carriedFood--;
+                                setMoney(m => m + 40);
+                                setTotalRevenue(r => r + 40);
+                            }
+                        }
+                    }
+
+                    // 5. 繪製卡通鴨爸爸小人 (繪本風)
+                    ctx.save();
+                    ctx.translate(playerX, playerY);
+
+                    // 腳步擺動
+                    const legOffset = Math.sin(walkCycle) * 4;
+                    ctx.fillStyle = '#f97316';
+                    ctx.fillRect(-8, 12 + legOffset, 5, 8);
+                    ctx.fillRect(3, 12 - legOffset, 5, 8);
+
+                    // 身體 (圍裙)
+                    ctx.fillStyle = '#dc2626';
+                    ctx.beginPath(); ctx.arc(0, 4, 14, 0, Math.PI*2); ctx.fill();
+
+                    // 頭部 (鴨鴨頭)
+                    ctx.fillStyle = '#facc15';
+                    ctx.beginPath(); ctx.arc(0, -10, 12, 0, Math.PI*2); ctx.fill();
+
+                    // 大眼睛
+                    ctx.fillStyle = '#000';
+                    ctx.beginPath(); ctx.arc(-4, -13, 2.5, 0, Math.PI*2); ctx.fill();
+                    ctx.beginPath(); ctx.arc(4, -13, 2.5, 0, Math.PI*2); ctx.fill();
+
+                    // 鴨嘴巴
+                    ctx.fillStyle = '#f97316';
+                    ctx.beginPath(); ctx.ellipse(0, -7, 6, 3, 0, 0, Math.PI*2); ctx.fill();
+
+                    // 白色廚師帽
+                    ctx.fillStyle = '#ffffff';
+                    ctx.beginPath(); ctx.arc(0, -22, 10, 0, Math.PI*2); ctx.fill();
+                    ctx.fillRect(-8, -20, 16, 5);
+
+                    // 頭頂堆疊餐點
+                    if (carriedFood > 0) {
+                        for (let i = 0; i < carriedFood; i++) {
+                            ctx.fillStyle = '#78350f';
+                            ctx.fillRect(-12, -35 - (i * 12), 24, 8);
+                            ctx.fillStyle = '#fbbf24';
+                            ctx.fillText('🍱', -7, -27 - (i * 12));
+                        }
+                    }
+
+                    ctx.restore();
+
+                    animId = requestAnimationFrame(render);
+                };
+
+                animId = requestAnimationFrame(render);
 
                 return () => {
-                    if (phaserRef.current) {
-                        phaserRef.current.destroy(true);
-                        phaserRef.current = null;
-                    }
+                    cancelAnimationFrame(animId);
+                    canvas.removeEventListener('mousemove', handlePointerMove);
+                    canvas.removeEventListener('touchmove', handlePointerMove);
                 };
             }, [currentTab]);
 
@@ -209,9 +263,13 @@
                 <div className="max-w-md mx-auto h-screen flex flex-col bg-stone-950 text-stone-100 select-none relative">
                     
                     {/* 頂部營運儀表板 */}
-                    <div className="bg-gradient-to-b from-amber-950 to-stone-900 p-3 border-b border-amber-800/60 flex justify-between items-center shadow-lg">
+                    <div className="bg-gradient-to-b from-amber-950 to-stone-900 p-3.5 border-b border-amber-800/60 flex justify-between items-center shadow-lg">
                         <div>
-                            <div className="text-[10px] text-amber-400 font-bold tracking-widest">鴨爸爸滷味 x 集町團購</div>
+                            <div className="text-[10px] text-amber-400 font-bold tracking-widest flex items-center gap-1">
+                                <span>鴨爸爸滷味</span>
+                                <span className="text-amber-600">x</span>
+                                <span>集町團購</span>
+                            </div>
                             <div className="text-base font-black text-amber-300">
                                 🏠 LV.{shopLevel} {shopLevel === 1 ? '古早味麵攤' : shopLevel === 2 ? '排隊名店' : '旗艦總店'}
                             </div>
@@ -223,14 +281,16 @@
                         </div>
                     </div>
 
-                    {/* Arcade Idle 操控小人遊戲主畫面 */}
+                    {/* 卡通 2D Arcade Idle 動態遊戲畫面 */}
                     {currentTab === 'arcade' && (
                         <div className="flex-1 p-3 flex flex-col justify-between overflow-hidden">
                             <div className="text-center text-xs text-stone-400 mb-1">
-                                👆 在畫面上拖曳滑動：操控鴨爸爸至「滷味檯」取餐 ➔ 送往「顧客檯」
+                                👆 點擊/拖曳畫面操控鴨爸爸：至「秘製老滷」取餐 ➔ 送給「顧客」
                             </div>
 
-                            <div id="phaser-game-container" className="my-auto shadow-2xl"></div>
+                            <div id="canvas-container">
+                                <canvas ref={canvasRef} width="340" height="350"></canvas>
+                            </div>
 
                             <div className="space-y-2 mt-2">
                                 <button
@@ -316,7 +376,7 @@
                                             <button 
                                                 onClick={() => {
                                                     if (!canClaim) {
-                                                        alert('未達兌換門檻！請繼續操控小人送餐賺取營業額！');
+                                                        alert('未達兌換門檻！請繼續操控鴨爸爸送餐賺取營業額！');
                                                         return;
                                                     }
                                                     setActiveCoupon({
@@ -420,7 +480,7 @@
 
                     {/* 底部導覽選單 */}
                     <div className="bg-stone-900 border-t border-amber-900/60 flex text-stone-400 text-xs">
-                        <button onClick={() => setCurrentTab('arcade')} className={`flex-1 py-3.5 text-center font-bold ${currentTab === 'arcade' ? 'tab-active' : ''}`}>🎮 模擬經營門市</button>
+                        <button onClick={() => setCurrentTab('arcade')} className={`flex-1 py-3.5 text-center font-bold ${currentTab === 'arcade' ? 'tab-active' : ''}`}>🎮 鴨爸爸模擬門市</button>
                         <button onClick={() => setCurrentTab('o2o')} className={`flex-1 py-3.5 text-center font-bold ${currentTab === 'o2o' ? 'tab-active' : ''}`}>📦 集町預購</button>
                         <button onClick={() => setCurrentTab('reward')} className={`flex-1 py-3.5 text-center font-bold ${currentTab === 'reward' ? 'tab-active' : ''}`}>🎁 實體禮品兌換</button>
                     </div>
