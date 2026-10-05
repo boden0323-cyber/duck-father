@@ -11,14 +11,14 @@
     <style>
         body { font-family: 'PingFang TC', 'Microsoft JhengHei', sans-serif; background-color: #120e0b; color: #eee; user-select: none; overflow: hidden; -webkit-tap-highlight-color: transparent; }
         .tab-active { border-bottom: 3px solid #f59e0b; color: #fbbf24; font-weight: bold; }
-        #canvas-container { position: relative; width: 340px; height: 320px; margin: 0 auto; border-radius: 16px; overflow: hidden; border: 2px solid #78350f; box-shadow: 0 10px 25px rgba(0,0,0,0.5); }
+        .smooth-move { transition: all 0.5s cubic-bezier(0.25, 1, 0.5, 1); }
     </style>
 </head>
 <body>
     <div id="root"></div>
 
     <script type="text/babel">
-        const { useState, useEffect, useRef } = React;
+        const { useState, useEffect } = React;
 
         const MENU_ITEMS = [
             { id: 'noodle_dry', name: '古早味乾麵', icon: '🍜', price: 50 },
@@ -52,10 +52,12 @@
 
             const [currentCustomer, setCurrentCustomer] = useState(null);
             const [cookingItem, setCookingItem] = useState(null);
+            const [carriedItem, setCarriedItem] = useState(null);
 
-            const canvasRef = useRef(null);
+            // 小人位置: 'center', 'kitchen', 'counter'
+            const [playerPos, setPlayerPos] = useState('center');
 
-            // 產生顧客邏輯
+            // 自動產生顧客
             useEffect(() => {
                 const interval = setInterval(() => {
                     if (!currentCustomer) {
@@ -87,155 +89,37 @@
                 return () => clearInterval(timer);
             }, [currentCustomer]);
 
-            // Canvas 平滑移動（修復卡住退回）
-            useEffect(() => {
-                if (currentTab !== 'arcade' || !canvasRef.current) return;
-
-                const canvas = canvasRef.current;
-                const ctx = canvas.getContext('2d');
-
-                let playerX = 170;
-                let playerY = 200;
-                let targetX = 170;
-                let targetY = 200;
-                let carriedItem = null;
-                let walkCycle = 0;
-
-                const handlePointerMove = (e) => {
-                    const rect = canvas.getBoundingClientRect();
-                    const clientX = e.touches ? e.touches[0].clientX : e.clientX;
-                    const clientY = e.touches ? e.touches[0].clientY : e.clientY;
-                    // 放寬移動範圍，不設太嚴格的阻擋邊界
-                    targetX = Math.max(20, Math.min(320, clientX - rect.left));
-                    targetY = Math.max(20, Math.min(300, clientY - rect.top));
-                };
-
-                canvas.addEventListener('mousemove', handlePointerMove);
-                canvas.addEventListener('touchmove', handlePointerMove);
-
-                let animId = null;
-                let lastCheck = Date.now();
-
-                const render = () => {
-                    ctx.clearRect(0, 0, 340, 320);
-
-                    // 1. 地板
-                    ctx.fillStyle = '#2d2420'; ctx.fillRect(0, 0, 340, 320);
-                    ctx.strokeStyle = '#3e312c'; ctx.lineWidth = 1;
-                    for (let i = 0; i < 340; i += 40) {
-                        ctx.beginPath(); ctx.moveTo(i, 0); ctx.lineTo(i, 320); ctx.stroke();
-                        ctx.beginPath(); ctx.moveTo(0, i); ctx.lineTo(340, i); ctx.stroke();
+            // 走去廚房端菜
+            const goToKitchen = () => {
+                setPlayerPos('kitchen');
+                setTimeout(() => {
+                    if (cookingItem && !carriedItem) {
+                        setCarriedItem(cookingItem);
+                        setCookingItem(null);
                     }
+                }, 500);
+            };
 
-                    // 2. 廚房檯 (左上)
-                    ctx.fillStyle = '#78350f'; ctx.fillRect(10, 10, 115, 80);
-                    ctx.fillStyle = '#451a03'; ctx.fillRect(15, 15, 105, 70);
-                    ctx.fillStyle = '#fff'; ctx.font = '11px sans-serif'; 
-                    ctx.fillText('♨️ 廚房備餐檯', 22, 35);
-                    if (cookingItem) {
-                        ctx.fillStyle = '#fbbf24';
-                        ctx.fillText(`已好: ${cookingItem.icon}${cookingItem.name}`, 20, 58);
-                    } else {
-                        ctx.fillStyle = '#9ca3af';
-                        ctx.fillText('請在下方點擊做菜', 20, 58);
-                    }
-
-                    // 3. 顧客檯 (右上)
-                    ctx.fillStyle = '#1e3a8a'; ctx.fillRect(215, 10, 115, 80);
-                    ctx.fillStyle = '#1e293b'; ctx.fillRect(220, 15, 105, 70);
-                    if (currentCustomer) {
-                        ctx.fillStyle = '#fef08a';
-                        ctx.fillText(`${currentCustomer.avatar} ${currentCustomer.name}`, 225, 33);
-                        ctx.fillStyle = '#f59e0b'; ctx.font = 'bold 12px sans-serif';
-                        ctx.fillText(`想吃: ${currentCustomer.order.icon}${currentCustomer.order.name}`, 225, 53);
-                        ctx.fillStyle = '#ef4444'; ctx.font = '10px sans-serif';
-                        ctx.fillText(`⏳ 耐心: ${currentCustomer.timeLeft}s`, 225, 72);
-                    } else {
-                        ctx.fillStyle = '#9ca3af'; ctx.font = '11px sans-serif';
-                        ctx.fillText('🚶 等候顧客中...', 228, 50);
-                    }
-
-                    // 4. 小人平滑逼近目標點（完全無硬性反彈機制）
-                    const dx = targetX - playerX;
-                    const dy = targetY - playerY;
-                    const dist = Math.sqrt(dx * dx + dy * dy);
-
-                    if (dist > 2) {
-                        playerX += (dx / dist) * 3.5;
-                        playerY += (dy / dist) * 3.5;
-                        walkCycle += 0.25;
-                    }
-
-                    // 5. 區域觸發感應（加大感應半徑至 70px，走近就拿/出餐）
-                    const now = Date.now();
-                    if (now - lastCheck > 250) {
-                        lastCheck = now;
-
-                        // 取餐感應 (靠近左上)
-                        if (Math.hypot(playerX - 65, playerY - 50) < 70 && cookingItem && !carriedItem) {
-                            carriedItem = cookingItem;
-                            setCookingItem(null);
-                        }
-
-                        // 出餐感應 (靠近右上)
-                        if (Math.hypot(playerX - 270, playerY - 50) < 70 && carriedItem && currentCustomer) {
-                            if (carriedItem.id === currentCustomer.order.id) {
-                                const earn = carriedItem.price;
-                                setMoney(m => m + earn);
-                                setTotalRevenue(r => r + earn);
-                                setRep(r => r + 1);
-                                carriedItem = null;
-                                setCurrentCustomer(null);
-                            }
+            // 走去櫃檯送餐
+            const goToCounter = () => {
+                setPlayerPos('counter');
+                setTimeout(() => {
+                    if (carriedItem && currentCustomer) {
+                        if (carriedItem.id === currentCustomer.order.id) {
+                            const earn = carriedItem.price;
+                            setMoney(m => m + earn);
+                            setTotalRevenue(r => r + earn);
+                            setRep(r => r + 1);
+                            setCarriedItem(null);
+                            setCurrentCustomer(null);
+                            setPlayerPos('center');
+                            alert(`🎉 成功送餐！賺取 $${earn} 營業金，好評度 +1！`);
+                        } else {
+                            alert(`❌ 送錯菜了！客人想吃的是【${currentCustomer.order.name}】！`);
                         }
                     }
-
-                    // 6. 繪製鴨爸爸小人
-                    ctx.save();
-                    ctx.translate(playerX, playerY);
-
-                    const legOffset = Math.sin(walkCycle) * 4;
-                    ctx.fillStyle = '#f97316';
-                    ctx.fillRect(-8, 12 + legOffset, 5, 8);
-                    ctx.fillRect(3, 12 - legOffset, 5, 8);
-
-                    ctx.fillStyle = '#dc2626'; // 圍裙
-                    ctx.beginPath(); ctx.arc(0, 4, 14, 0, Math.PI*2); ctx.fill();
-
-                    ctx.fillStyle = '#facc15'; // 鴨頭
-                    ctx.beginPath(); ctx.arc(0, -10, 12, 0, Math.PI*2); ctx.fill();
-
-                    ctx.fillStyle = '#000'; // 眼睛
-                    ctx.beginPath(); ctx.arc(-4, -13, 2.5, 0, Math.PI*2); ctx.fill();
-                    ctx.beginPath(); ctx.arc(4, -13, 2.5, 0, Math.PI*2); ctx.fill();
-
-                    ctx.fillStyle = '#f97316'; // 嘴巴
-                    ctx.beginPath(); ctx.ellipse(0, -7, 6, 3, 0, 0, Math.PI*2); ctx.fill();
-
-                    ctx.fillStyle = '#ffffff'; // 廚師帽
-                    ctx.beginPath(); ctx.arc(0, -22, 10, 0, Math.PI*2); ctx.fill();
-                    ctx.fillRect(-8, -20, 16, 5);
-
-                    // 端菜動態
-                    if (carriedItem) {
-                        ctx.fillStyle = '#78350f'; ctx.fillRect(-14, -38, 28, 10);
-                        ctx.fillStyle = '#fff'; ctx.font = '12px sans-serif';
-                        ctx.fillText(carriedItem.icon, -6, -29);
-                    }
-
-                    ctx.restore();
-
-                    animId = requestAnimationFrame(render);
-                };
-
-                animId = requestAnimationFrame(render);
-
-                return () => {
-                    cancelAnimationFrame(animId);
-                    canvas.removeEventListener('mousemove', handlePointerMove);
-                    canvas.removeEventListener('touchmove', handlePointerMove);
-                };
-            }, [currentTab, cookingItem, currentCustomer]);
+                }, 500);
+            };
 
             const upgradeShop = () => {
                 const cost = shopLevel * 350;
@@ -283,51 +167,122 @@
                         </div>
                     </div>
 
-                    {/* Arcade 操控遊戲與廚房點餐 */}
+                    {/* Arcade 流暢場景 */}
                     {currentTab === 'arcade' && (
                         <div className="flex-1 p-3 flex flex-col justify-between overflow-hidden">
-                            <div id="canvas-container">
-                                <canvas ref={canvasRef} width="340" height="320"></canvas>
+                            
+                            {/* 門市主繪畫地圖 */}
+                            <div className="bg-stone-900 border-2 border-amber-900/60 rounded-2xl p-4 h-64 relative overflow-hidden shadow-2xl flex flex-col justify-between">
+                                
+                                {/* 頂部工作檯列 */}
+                                <div className="flex justify-between items-start z-10">
+                                    {/* 左上：廚房備餐檯 */}
+                                    <button 
+                                        onClick={goToKitchen}
+                                        className="bg-amber-950/80 border-2 border-amber-600 p-2.5 rounded-xl text-left hover:scale-105 active:scale-95 transition-all shadow-lg"
+                                    >
+                                        <div className="text-xs font-bold text-amber-300 flex items-center gap-1">
+                                            <span>♨️ 廚房備餐檯</span>
+                                        </div>
+                                        <div className="text-[10px] text-stone-300 mt-1">
+                                            {cookingItem ? `已做好: ${cookingItem.icon}${cookingItem.name}` : '無待端餐點'}
+                                        </div>
+                                        <div className="text-[9px] bg-amber-500 text-stone-950 font-bold px-2 py-0.5 rounded mt-1 inline-block">
+                                            👉 點擊走來取餐
+                                        </div>
+                                    </button>
+
+                                    {/* 右上：顧客櫃檯 */}
+                                    <button 
+                                        onClick={goToCounter}
+                                        className="bg-blue-950/80 border-2 border-blue-500 p-2.5 rounded-xl text-right hover:scale-105 active:scale-95 transition-all shadow-lg"
+                                    >
+                                        <div className="text-xs font-bold text-blue-300">
+                                            {currentCustomer ? `${currentCustomer.avatar} ${currentCustomer.name}` : '門市櫃檯'}
+                                        </div>
+                                        <div className="text-[10px] text-amber-300 font-bold mt-1">
+                                            {currentCustomer ? `想吃: ${currentCustomer.order.icon}${currentCustomer.order.name}` : '等候顧客中...'}
+                                        </div>
+                                        {currentCustomer && (
+                                            <div className="text-[9px] text-red-400 mt-0.5">⏳ 耐心: {currentCustomer.timeLeft}s</div>
+                                        )}
+                                        <div className="text-[9px] bg-blue-500 text-white font-bold px-2 py-0.5 rounded mt-1 inline-block">
+                                            👉 點擊走來送餐
+                                        </div>
+                                    </button>
+                                </div>
+
+                                {/* 動態滑順鴨爸爸小人 */}
+                                <div 
+                                    className={`absolute smooth-move flex flex-col items-center justify-center ${
+                                        playerPos === 'kitchen' ? 'left-8 top-28' : playerPos === 'counter' ? 'right-8 top-28' : 'left-1/2 -translate-x-1/2 top-36'
+                                    }`}
+                                >
+                                    {/* 手上端的菜 */}
+                                    {carriedItem && (
+                                        <div className="bg-amber-900 border border-amber-500 px-2 py-0.5 rounded-full text-xs animate-bounce mb-1">
+                                            🍱 {carriedItem.icon}
+                                        </div>
+                                    )}
+                                    {/* 鴨爸爸卡通小人 */}
+                                    <div className="relative">
+                                        <div className="w-10 h-10 bg-yellow-400 rounded-full border-2 border-amber-600 flex items-center justify-center shadow-lg">
+                                            <span className="text-lg">🦆</span>
+                                        </div>
+                                        <div className="absolute -top-3 left-1/2 -translate-x-1/2 bg-white text-[8px] font-bold px-1 rounded border border-stone-400">
+                                            廚師帽
+                                        </div>
+                                    </div>
+                                    <span className="text-[10px] font-bold text-amber-300 mt-1 bg-stone-950/80 px-2 py-0.5 rounded">鴨爸爸店長</span>
+                                </div>
+
+                                <div className="text-center text-[10px] text-stone-500 z-10">
+                                    📍 高雄濱海一路門市經營中
+                                </div>
                             </div>
 
-                            {/* 點擊製作菜色按鈕區 */}
-                            <div className="bg-stone-900 p-2.5 rounded-xl border border-stone-800">
-                                <div className="text-[10px] text-amber-400 font-bold mb-1.5 flex justify-between">
-                                    <span>👨‍🍳 點擊下方做餐，再滑動小人去端餐：</span>
-                                    <span>{currentCustomer ? `需求：${currentCustomer.order.icon}${currentCustomer.order.name}` : '等候顧客'}</span>
+                            {/* 做菜點餐按鈕區 */}
+                            <div className="bg-stone-900 p-3 rounded-2xl border border-stone-800 space-y-2">
+                                <div className="text-[10px] text-amber-400 font-bold flex justify-between items-center">
+                                    <span>👨‍🍳 選擇菜色做餐：</span>
+                                    <span>{currentCustomer ? `顧客需求：${currentCustomer.order.icon}${currentCustomer.order.name}` : '暫無顧客'}</span>
                                 </div>
                                 <div className="grid grid-cols-4 gap-1.5">
                                     {MENU_ITEMS.map(item => (
                                         <button
                                             key={item.id}
-                                            onClick={() => setCookingItem(item)}
-                                            className="bg-stone-950 border border-amber-900/40 p-1.5 rounded-lg text-center active:scale-95 hover:border-amber-500"
+                                            onClick={() => {
+                                                setCookingItem(item);
+                                                alert(`♨️ 已開始製作【${item.name}】！請點擊左上角「廚房備餐檯」讓鴨爸爸走過去取餐！`);
+                                            }}
+                                            className="bg-stone-950 border border-amber-900/40 hover:border-amber-500 p-2 rounded-xl text-center active:scale-95 transition-all shadow"
                                         >
-                                            <div className="text-base">{item.icon}</div>
-                                            <div className="text-[9px] font-bold text-stone-300 truncate">{item.name}</div>
+                                            <div className="text-xl mb-0.5">{item.icon}</div>
+                                            <div className="text-[10px] font-bold text-stone-200 truncate">{item.name}</div>
+                                            <div className="text-[9px] text-amber-400">${item.price}</div>
                                         </button>
                                     ))}
                                 </div>
                             </div>
 
                             <div className="flex justify-between items-center text-[10px] text-stone-500 px-1">
-                                <button onClick={upgradeShop} className="bg-amber-500 text-stone-950 font-black px-3 py-1.5 rounded-lg text-xs">🚀 門市升級 (${shopLevel * 350})</button>
-                                <button onClick={resetGameData} className="underline text-stone-600">重置存檔</button>
+                                <button onClick={upgradeShop} className="bg-amber-500 hover:bg-amber-400 text-stone-950 font-black px-3 py-1.5 rounded-lg text-xs active:scale-95 shadow">🚀 門市升級 (${shopLevel * 350})</button>
+                                <button onClick={resetGameData} className="underline text-stone-600 hover:text-stone-400">重置存檔</button>
                             </div>
                         </div>
                     )}
 
-                    {/* 任務與實體好禮兌換 */}
+                    {/* 成就任務與實體好禮 */}
                     {currentTab === 'tasks' && (
                         <div className="flex-1 p-4 overflow-y-auto space-y-3">
-                            <div className="bg-stone-900 p-3.5 rounded-xl border border-amber-500/60">
-                                <h3 className="font-bold text-amber-300 text-xs mb-1">📜 店長成就任務 · 換實體衛生紙與優惠</h3>
-                                <p className="text-[10px] text-stone-400">幫顧客做正確的餐點累積好評度與總營業額，達成任務即可現場免費領好禮！</p>
+                            <div className="bg-stone-900 p-3.5 rounded-xl border border-amber-500/60 shadow-lg">
+                                <h3 className="font-bold text-amber-300 text-xs mb-1">📜 店長成就任務 · 現場免費領衛生紙與好禮</h3>
+                                <p className="text-[10px] text-stone-400">做菜送餐提升好評度與累積營業額，達成任務即可現場免費領取抽取式衛生紙！</p>
                             </div>
 
                             <div className="space-y-2.5">
                                 {TASKS.map(task => (
-                                    <div key={task.id} className="bg-stone-900 p-3.5 rounded-xl border border-stone-800 flex justify-between items-center">
+                                    <div key={task.id} className="bg-stone-900 p-3.5 rounded-xl border border-stone-800 flex justify-between items-center shadow">
                                         <div>
                                             <div className="font-bold text-xs text-amber-200">{task.title}</div>
                                             <div className="text-[10px] text-stone-400 mt-1">獎勵: {task.reward}</div>
@@ -387,7 +342,7 @@
                         </div>
                     )}
 
-                    {/* 底部選單 */}
+                    {/* 底部導覽選單 */}
                     <div className="bg-stone-900 border-t border-amber-900/60 flex text-stone-400 text-xs">
                         <button onClick={() => setCurrentTab('arcade')} className={`flex-1 py-3.5 text-center font-bold ${currentTab === 'arcade' ? 'tab-active' : ''}`}>🎮 門市出餐經營</button>
                         <button onClick={() => setCurrentTab('tasks')} className={`flex-1 py-3.5 text-center font-bold ${currentTab === 'tasks' ? 'tab-active' : ''}`}>📜 成就任務與衛生紙</button>
